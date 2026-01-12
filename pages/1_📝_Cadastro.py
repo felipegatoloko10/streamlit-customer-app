@@ -1,101 +1,82 @@
 import streamlit as st
-import sqlite3
 import datetime
+import database
+import validators
 
-# COLUNAS DO BANCO DE DADOS
-DB_COLUMNS = [
-    'nome_completo', 'cpf', 'whatsapp', 'email', 'data_nascimento', 
-    'cep', 'endereco', 'numero', 'complemento', 'bairro', 'cidade', 'estado'
-]
+# --- Inicialização do Session State ---
+if 'form_values' not in st.session_state:
+    st.session_state['form_values'] = {
+        'nome_completo': '', 'cpf': '', 'whatsapp': '', 'email': '', 
+        'data_nascimento': None, 'cep': '', 'endereco': '', 'numero': '', 
+        'complemento': '', 'bairro': '', 'cidade': '', 'estado': ''
+    }
 
-def get_db_connection():
-    """Cria e retorna uma conexão com o banco de dados, garantindo a nova estrutura da tabela."""
-    conn = sqlite3.connect('customers.db')
-    try:
-        # A instrução agora é segura: cria a tabela apenas se não existir.
-        conn.execute(f'''
-            CREATE TABLE IF NOT EXISTS customers (
-                id INTEGER PRIMARY KEY,
-                {', '.join([f'{col} TEXT' for col in DB_COLUMNS])}
-            )
-        ''')
-        conn.commit()
-    except sqlite3.Error as e:
-        st.error(f"Erro ao inicializar o banco de dados: {e}")
-        conn.close()
-        raise
-    return conn
+# --- Funções de Callback ---
+def format_field_callback(field_name, formatter):
+    if field_name in st.session_state:
+        current_value = st.session_state[field_name]
+        st.session_state.form_values[field_name] = formatter(current_value)
 
-def insert_customer(data):
-    """Insere um novo cliente no banco de dados."""
-    if not any(data.values()):
-        st.warning('O formulário está vazio.')
-        return False
-        
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        columns = ', '.join(data.keys())
-        placeholders = ', '.join(['?'] * len(data))
-        sql = f"INSERT INTO customers ({columns}) VALUES ({placeholders})"
-        
-        cursor.execute(sql, list(data.values()))
-        conn.commit()
-        st.success('Cliente salvo com sucesso!')
-        return True
-    except sqlite3.Error as e:
-        st.error(f"Ocorreu um erro ao salvar os dados: {e}")
-        return False
-    finally:
-        if conn:
-            conn.close()
-
-st.set_page_config(
-    page_title="Cadastro de Clientes",
-    page_icon="📝",
-)
-
+# --- Configuração da Página ---
+st.set_page_config(page_title="Cadastro de Clientes", page_icon="📝")
 st.title('Cadastro de Clientes')
 
-with st.form(key='customer_form', clear_on_submit=True):
-    st.header("Dados Pessoais")
-    nome_completo = st.text_input('Nome Completo')
-    cpf = st.text_input('CPF')
-    whatsapp = st.text_input('WhatsApp (com DDD)')
-    email = st.text_input('E-mail')
-    data_nascimento = st.date_input('Data de Nascimento', min_value=datetime.date(1900, 1, 1), value=None)
+# --- Inputs do Formulário ---
+form = st.session_state.form_values
+st.header("Dados Pessoais")
+form['nome_completo'] = st.text_input('Nome Completo', value=form['nome_completo'], key='nome_completo')
+form['cpf'] = st.text_input('CPF', value=form['cpf'], key='cpf', on_change=format_field_callback, args=('cpf', validators.format_cpf))
+form['whatsapp'] = st.text_input('WhatsApp (com DDD)', value=form['whatsapp'], key='whatsapp', on_change=format_field_callback, args=('whatsapp', validators.format_whatsapp))
+form['email'] = st.text_input('E-mail', value=form['email'], key='email')
+form['data_nascimento'] = st.date_input('Data de Nascimento', min_value=datetime.date(1900, 1, 1), value=form['data_nascimento'], key='data_nascimento')
 
-    st.header("Endereço")
-    cep = st.text_input('CEP')
-    endereco = st.text_input('Endereço')
-    numero = st.text_input('Número')
-    complemento = st.text_input('Complemento')
-    bairro = st.text_input('Bairro')
-    cidade = st.text_input('Cidade')
-    estado = st.text_input('Estado (UF)', max_chars=2)
-    
-    submit_button = st.form_submit_button(label='Salvar Cliente')
+st.header("Endereço")
+form['cep'] = st.text_input('CEP', value=form['cep'], key='cep')
+form['endereco'] = st.text_input('Endereço', value=form['endereco'], key='endereco')
+form['numero'] = st.text_input('Número', value=form['numero'], key='numero')
+form['complemento'] = st.text_input('Complemento', value=form['complemento'], key='complemento')
+form['bairro'] = st.text_input('Bairro', value=form['bairro'], key='bairro')
+form['cidade'] = st.text_input('Cidade', value=form['cidade'], key='cidade')
+form['estado'] = st.text_input('Estado (UF)', value=form['estado'], max_chars=2, key='estado')
 
-if submit_button:
-    customer_data = {
-        'nome_completo': nome_completo,
-        'cpf': cpf,
-        'whatsapp': whatsapp,
-        'email': email,
-        'data_nascimento': data_nascimento.strftime('%Y-%m-%d') if data_nascimento else '',
-        'cep': cep,
-        'endereco': endereco,
-        'numero': numero,
-        'complemento': complemento,
-        'bairro': bairro,
-        'cidade': cidade,
-        'estado': estado
-    }
-    # Filtra apenas as chaves com valores não vazios
-    customer_data_to_insert = {k: v for k, v in customer_data.items() if v}
-    
-    if customer_data_to_insert:
-        insert_customer(customer_data_to_insert)
+st.markdown("---")
+
+message_placeholder = st.empty()
+
+# --- Lógica de Submissão ---
+if st.button('Salvar Cliente', type="primary", use_container_width=True):
+    final_form_values = st.session_state.form_values
+
+    if not final_form_values['nome_completo'] or not final_form_values['cpf']:
+        message_placeholder.error("Os campos 'Nome Completo' e 'CPF' são obrigatórios.")
     else:
-        st.warning("O formulário está vazio.")
+        customer_data_to_insert = {k: v for k, v in final_form_values.items() if v or k == 'complemento'}
+        if final_form_values['data_nascimento']:
+            customer_data_to_insert['data_nascimento'] = final_form_values['data_nascimento'].strftime('%Y-%m-%d')
+        
+        success, error_message = database.insert_customer(customer_data_to_insert)
+        
+        if success:
+            message_placeholder.success("Cliente salvo com sucesso!")
+            # CORREÇÃO: Lógica de limpeza do formulário ajustada
+            for key in st.session_state.form_values:
+                if key == 'data_nascimento':
+                    st.session_state.form_values[key] = None # Garante que o campo de data receba None
+                else:
+                    st.session_state.form_values[key] = '' # Outros campos recebem string vazia
+            
+            import time
+            time.sleep(2)
+            st.rerun()
+        else:
+            message_placeholder.error(f"Erro ao salvar: {error_message}")
+
+# Este bloco pode ser removido ou mantido para casos de uso mais complexos,
+# mas a lógica principal agora está acima.
+if 'submission_status' in st.session_state:
+    status = st.session_state.submission_status
+    if status.get('success'):
+        message_placeholder.success(status['message'])
+    else:
+        message_placeholder.error(status['message'])
+    del st.session_state.submission_status
