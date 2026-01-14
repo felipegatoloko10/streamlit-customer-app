@@ -168,19 +168,75 @@ def fetch_data(search_query: str = None, state_filter: str = None, page: int = 1
     except (pd.io.sql.DatabaseError, sqlite3.Error) as e:
         raise DatabaseError(f"Erro ao buscar dados: {e}") from e
 
+def fetch_dashboard_data() -> pd.DataFrame:
+    """Busca apenas as colunas necessárias para os gráficos e tabelas do dashboard."""
+    conn = get_db_connection()
+    columns_to_fetch = "nome_completo, email, cidade, data_cadastro, tipo_documento, estado"
+    query = f"SELECT {columns_to_fetch} FROM customers ORDER BY data_cadastro DESC"
+    try:
+        df = pd.read_sql_query(query, conn)
+        # Converte o tipo de dado após a busca
+        df['data_cadastro'] = pd.to_datetime(df['data_cadastro'], errors='coerce').dt.date
+        return df
+    except (pd.io.sql.DatabaseError, sqlite3.Error) as e:
+        raise DatabaseError(f"Erro ao buscar dados para o dashboard: {e}") from e
+
+
 def _get_updates(edited_df: pd.DataFrame, original_df: pd.DataFrame) -> list:
     updates = []
-    original_df.set_index('id', inplace=True)
-    edited_df.set_index('id', inplace=True)
+    # Ensure original_df has 'id' as index for efficient lookup
+    if 'id' in original_df.columns:
+        original_df = original_df.set_index('id')
     
-    for idx, row in edited_df.iterrows():
+    for idx, edited_row in edited_df.iterrows():
         if idx in original_df.index:
             original_row = original_df.loc[idx]
-            if not row.astype(str).equals(original_row.astype(str)):
-                _validate_row(row)
+            
+            row_changed = False
+            editable_cols = [col for col in DB_COLUMNS if col not in ['id', 'data_cadastro']]
+            
+            for col in editable_cols: 
+                edited_value = edited_row.get(col)
+                original_value = original_row.get(col)
+
+                # Convert pandas NaT/NaN to None for consistent comparison
+                if pd.isna(edited_value): edited_value = None
+                if pd.isna(original_value): original_value = None
                 
-                row['data_nascimento'] = row['data_nascimento'].strftime('%Y-%m-%d') if pd.notna(row['data_nascimento']) else None
-                update_data = tuple(row[col] for col in DB_COLUMNS if col != 'data_cadastro') + (idx,)
+                # Special handling for dates
+                if col in ['data_nascimento']:
+                    edited_date = pd.to_datetime(edited_value).date() if edited_value else None
+                    original_date = pd.to_datetime(original_value).date() if original_value else None
+                    if edited_date != original_date:
+                        row_changed = True
+                        break
+                    continue
+
+                # Handle case where one is None and the other is an empty string
+                if (edited_value is None and original_value == '') or \
+                   (edited_value == '' and original_value is None):
+                    continue
+
+                # Direct comparison for other types
+                if edited_value != original_value:
+                    row_changed = True
+                    break
+            
+            if row_changed:
+                _validate_row(edited_row)
+                
+                update_values = []
+                update_columns = [col for col in DB_COLUMNS if col != 'data_cadastro']
+                for col in update_columns:
+                    value = edited_row.get(col)
+                    if col == 'data_nascimento' and pd.notna(value):
+                        update_values.append(pd.to_datetime(value).strftime('%Y-%m-%d'))
+                    elif value == '':
+                        update_values.append(None)
+                    else:
+                        update_values.append(value)
+                
+                update_data = tuple(update_values) + (idx,)
                 updates.append(update_data)
     return updates
 
@@ -218,6 +274,35 @@ def commit_changes(edited_df: pd.DataFrame, original_df: pd.DataFrame):
     except sqlite3.Error as e:
         conn.rollback()
         raise DatabaseError(f"Ocorreu um erro no banco de dados: {e}") from e
+
+def get_total_customers_count() -> int:
+    conn = get_db_connection()
+    query = "SELECT COUNT(id) FROM customers"
+    try:
+        cursor = conn.cursor()
+        cursor.execute(query)
+        return cursor.fetchone()[0]
+    except sqlite3.Error as e:
+        raise DatabaseError(f"Não foi possível contar o total de clientes: {e}") from e
+
+def get_new_customers_current_month_count() -> int:
+    conn = get_db_connection()
+    query = "SELECT COUNT(id) FROM customers WHERE STRFTIME('%Y-%m', data_cadastro) = STRFTIME('%Y-%m', 'now', 'localtime')"
+    try:
+        cursor = conn.cursor()
+        cursor.execute(query)
+        return cursor.fetchone()[0]
+    except sqlite3.Error as e:
+        raise DatabaseError(f"Não foi possível contar novos clientes do mês: {e}") from e
+
+def get_customer_counts_by_state() -> pd.Series:
+    conn = get_db_connection()
+    query = "SELECT estado, COUNT(id) as count FROM customers WHERE estado IS NOT NULL AND estado != '' GROUP BY estado ORDER BY count DESC"
+    try:
+        df = pd.read_sql_query(query, conn)
+        return df.set_index('estado')['count']
+    except sqlite3.Error as e:
+        raise DatabaseError(f"Não foi possível obter a contagem de clientes por estado: {e}") from e
 
 def df_to_csv(df: pd.DataFrame) -> bytes:
     return df.to_csv(index=False).encode('utf-8')

@@ -11,21 +11,21 @@ st.set_page_config(
 
 st.title("🏠 Dashboard de Clientes")
 
-# --- Função de Carregamento com Cache ---
+# --- Função de Carregamento de Dados para Gráficos e Tabelas (somente colunas necessárias) ---
 @st.cache_data(ttl=600) # Cache de 10 minutos
-def load_data():
-    """Busca todos os dados dos clientes para o dashboard."""
+def load_dataframe_for_charts():
+    """Busca dados de clientes (apenas colunas necessárias) para gráficos e tabelas."""
     try:
-        # page_size muito grande para buscar todos os registros para o dashboard
-        return database.fetch_data(page_size=50000) 
+        # Usa a função otimizada que busca apenas as colunas necessárias
+        return database.fetch_dashboard_data()
     except database.DatabaseError as e:
-        st.error(f"Não foi possível carregar os dados do dashboard: {e}")
+        st.error(f"Não foi possível carregar os dados para gráficos: {e}")
         return pd.DataFrame()
 
-# --- Carregar Dados ---
-df = load_data()
+# --- Carregar Dados para Gráficos e Tabelas ---
+df_charts = load_dataframe_for_charts()
 
-if df.empty:
+if df_charts.empty:
     st.info(
         "Ainda não há clientes cadastrados. "
         "Vá para a página de '📝 Cadastro' na barra lateral para começar."
@@ -35,16 +35,19 @@ if df.empty:
         st.rerun()
 else:
     # --- Preparação dos Dados ---
-    df['data_cadastro'] = pd.to_datetime(df['data_cadastro'])
+    # Ensure 'data_cadastro' is datetime for local dataframe operations
+    df_charts['data_cadastro'] = pd.to_datetime(df_charts['data_cadastro'])
     
-    # --- Métricas Principais ---
-    total_clientes = len(df)
-    cliente_recente = df.sort_values(by='data_cadastro', ascending=False).iloc[0]
+    # --- Métricas Principais (Otimizadas) ---
+    total_clientes = database.get_total_customers_count()
+    novos_clientes_mes = database.get_new_customers_current_month_count()
     
-    now = pd.Timestamp.now()
-    novos_clientes_mes = len(df[df['data_cadastro'].dt.to_period('M') == now.to_period('M')])
+    # These still rely on df_charts
+    cliente_recente = df_charts.sort_values(by='data_cadastro', ascending=False).iloc[0]
     
-    estado_mais_comum = df['estado'].mode()[0] if not df['estado'].empty and df['estado'].mode().any() else "N/A"
+    # Get by state from optimized query
+    clientes_por_estado_series = database.get_customer_counts_by_state()
+    estado_mais_comum = clientes_por_estado_series.index[0] if not clientes_por_estado_series.empty else "N/A"
 
     col1, col2, col3, col4 = st.columns(4)
     with col1:
@@ -65,7 +68,7 @@ else:
 
     with col1:
         st.subheader("Novos Clientes por Mês")
-        df_chart = df.copy()
+        df_chart = df_charts.copy()
         df_chart['mes_cadastro'] = df_chart['data_cadastro'].dt.to_period('M').astype(str)
         clientes_por_mes = df_chart.groupby('mes_cadastro').size().reset_index(name='contagem')
         clientes_por_mes = clientes_por_mes.set_index('mes_cadastro')
@@ -73,30 +76,34 @@ else:
 
     with col2:
         st.subheader("Clientes por Estado")
-        clientes_por_estado = df['estado'].value_counts().reset_index()
-        clientes_por_estado.columns = ['estado', 'contagem']
-        
-        pie_chart = alt.Chart(clientes_por_estado).mark_arc(innerRadius=50).encode(
-            theta=alt.Theta(field="contagem", type="quantitative"),
-            color=alt.Color(field="estado", type="nominal", title="Estado"),
-            tooltip=['estado', 'contagem']
-        ).properties(
-            width=300,
-            height=300
-        )
-        st.altair_chart(pie_chart, width='stretch')
+        # Reutiliza a série otimizada que já foi buscada para a métrica
+        if not clientes_por_estado_series.empty:
+            clientes_por_estado = clientes_por_estado_series.reset_index()
+            clientes_por_estado.columns = ['estado', 'contagem']
+            
+            pie_chart = alt.Chart(clientes_por_estado).mark_arc(innerRadius=50).encode(
+                theta=alt.Theta(field="contagem", type="quantitative"),
+                color=alt.Color(field="estado", type="nominal", title="Estado"),
+                tooltip=['estado', 'contagem']
+            ).properties(
+                width=300,
+                height=300
+            )
+            st.altair_chart(pie_chart, use_container_width=True)
+        else:
+            st.info("Não há dados de estado para exibir.")
 
     st.markdown("---")
     
     col3, col4, col5 = st.columns(3)
     with col3:
         st.subheader("Top 5 Cidades")
-        top_5_cidades = df['cidade'].value_counts().nlargest(5)
+        top_5_cidades = df_charts['cidade'].value_counts().nlargest(5)
         st.bar_chart(top_5_cidades)
 
     with col4:
         st.subheader("Tipo de Cliente")
-        tipo_cliente = df['tipo_documento'].value_counts().reset_index()
+        tipo_cliente = df_charts['tipo_documento'].value_counts().reset_index()
         tipo_cliente.columns = ['tipo', 'contagem']
         
         donut_chart = alt.Chart(tipo_cliente).mark_arc(innerRadius=80).encode(
@@ -112,7 +119,7 @@ else:
     with col5:
         st.subheader("Últimos 5 Clientes Cadastrados")
         st.dataframe(
-            df[['nome_completo', 'email', 'cidade', 'data_cadastro']]
+            df_charts[['nome_completo', 'email', 'cidade', 'data_cadastro']]
             .sort_values(by='data_cadastro', ascending=False)
             .head(5),
             width='stretch',

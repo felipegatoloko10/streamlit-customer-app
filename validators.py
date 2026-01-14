@@ -30,7 +30,7 @@ def format_cpf(cpf: str) -> str:
     cpf_cleaned = re.sub(r'[^0-9]', '', cpf)
     if len(cpf_cleaned) == 11:
         return f'{cpf_cleaned[:3]}.{cpf_cleaned[3:6]}.{cpf_cleaned[6:9]}-{cpf_cleaned[9:]}'
-    return cpf
+    return "" # Retorna string vazia se não for possível formatar
 
 def is_valid_cpf(cpf: str) -> bool:
     """Verifica se um CPF é válido. Lança CPFValueError se inválido."""
@@ -46,7 +46,7 @@ def format_cnpj(cnpj: str) -> str:
     cnpj_cleaned = re.sub(r'[^0-9]', '', cnpj)
     if len(cnpj_cleaned) == 14:
         return f'{cnpj_cleaned[:2]}.{cnpj_cleaned[2:5]}.{cnpj_cleaned[5:8]}/{cnpj_cleaned[8:12]}-{cnpj_cleaned[12:]}'
-    return cnpj
+    return "" # Retorna string vazia se não for possível formatar
 
 def is_valid_cnpj(cnpj: str) -> bool:
     """Verifica se um CNPJ é válido. Lança CNPJValueError se inválido."""
@@ -64,7 +64,7 @@ def format_whatsapp(whatsapp: str) -> str:
         return f'({whatsapp_cleaned[:2]}) {whatsapp_cleaned[2:7]}-{whatsapp_cleaned[7:]}'
     if len(whatsapp_cleaned) == 10:
         return f'({whatsapp_cleaned[:2]}) {whatsapp_cleaned[2:6]}-{whatsapp_cleaned[6:]}'
-    return whatsapp
+    return "" # Retorna string vazia se não for possível formatar
 
 def is_valid_whatsapp(whatsapp: str) -> bool:
     # ... (função mantida como antes)

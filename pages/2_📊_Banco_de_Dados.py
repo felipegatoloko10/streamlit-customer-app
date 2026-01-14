@@ -4,6 +4,9 @@ import database
 from streamlit_modal import Modal
 import math
 
+# --- Constantes ---
+EXPORT_LIMIT = 20000 # Limite para exportação completa de dados
+
 st.set_page_config(
     page_title="Banco de Dados de Clientes",
     page_icon="📊",
@@ -49,15 +52,19 @@ def process_changes(df_edited, df_original):
     except Exception as e:
         st.session_state.db_status = {"success": False, "message": f"Ocorreu um erro inesperado: {e}"}
 
+def clear_full_export_state():
+    """Limpa o estado da exportação completa quando os filtros mudam."""
+    if 'full_export_data' in st.session_state:
+        del st.session_state.full_export_data
 
 # --- Barra Lateral (Filtros, Paginação e Ações) ---
 st.sidebar.header("Filtros e Ações")
-search_query = st.sidebar.text_input("Buscar por Nome ou CPF")
+search_query = st.sidebar.text_input("Buscar por Nome ou CPF", on_change=clear_full_export_state)
 conn = database.get_db_connection()
 try:
     all_states = pd.read_sql_query("SELECT DISTINCT estado FROM customers WHERE estado IS NOT NULL AND estado != '' ORDER BY estado", conn)
     state_options = ["Todos"] + all_states['estado'].tolist()
-    state_filter = st.sidebar.selectbox("Filtrar por Estado", options=state_options)
+    state_filter = st.sidebar.selectbox("Filtrar por Estado", options=state_options, on_change=clear_full_export_state)
 except Exception as e:
     st.sidebar.error("Filtros indisponíveis.")
     st.stop()
@@ -83,7 +90,13 @@ if not df_page.empty:
     
     # Botão para exportar todos os resultados da busca
     if total_records > page_size:
-        if st.sidebar.button("Preparar Exportação Completa"):
+        can_export_full = total_records <= EXPORT_LIMIT
+        export_button_label = "Preparar Exportação Completa"
+        
+        if not can_export_full:
+            st.sidebar.warning(f"A exportação completa é limitada a {EXPORT_LIMIT} registros. Por favor, refine seus filtros.")
+            
+        if st.sidebar.button(export_button_label, disabled=not can_export_full):
             with st.spinner(f"Buscando todos os {total_records} registros..."):
                 df_full = database.fetch_data(search_query=search_query, state_filter=state_filter, page_size=total_records)
                 st.session_state.full_export_data = database.df_to_csv(df_full)
@@ -96,9 +109,8 @@ if not df_page.empty:
                 mime='text/csv',
                 on_click=lambda: st.session_state.pop('full_export_data') # Limpa o estado após o clique
             )
-else:
-    st.sidebar.info("Não há dados para exportar.")
-
+    else:
+        st.sidebar.info("Não há dados para exportar.")
 # ... (resto do código da Interface de Edição mantido como antes)
 if not df_page.empty:
     df_for_editing = df_page.copy()
