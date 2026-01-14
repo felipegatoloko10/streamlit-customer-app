@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-import database
+import database as db
 import altair as alt
 
 st.set_page_config(
@@ -17,8 +17,8 @@ def load_dataframe_for_charts():
     """Busca dados de clientes (apenas colunas necessárias) para gráficos e tabelas."""
     try:
         # Usa a função otimizada que busca apenas as colunas necessárias
-        return database.fetch_dashboard_data()
-    except database.DatabaseError as e:
+        return db.fetch_dashboard_data()
+    except db.DatabaseError as e:
         st.error(f"Não foi possível carregar os dados para gráficos: {e}")
         return pd.DataFrame()
 
@@ -39,14 +39,14 @@ else:
     df_charts['data_cadastro'] = pd.to_datetime(df_charts['data_cadastro'])
     
     # --- Métricas Principais (Otimizadas) ---
-    total_clientes = database.get_total_customers_count()
-    novos_clientes_mes = database.get_new_customers_current_month_count()
+    total_clientes = db.get_total_customers_count()
+    novos_clientes_mes = db.get_new_customers_current_month_count()
     
     # These still rely on df_charts
     cliente_recente = df_charts.sort_values(by='data_cadastro', ascending=False).iloc[0]
     
     # Get by state from optimized query
-    clientes_por_estado_series = database.get_customer_counts_by_state()
+    clientes_por_estado_series = db.get_customer_counts_by_state()
     estado_mais_comum = clientes_por_estado_series.index[0] if not clientes_por_estado_series.empty else "N/A"
 
     col1, col2, col3, col4 = st.columns(4)
