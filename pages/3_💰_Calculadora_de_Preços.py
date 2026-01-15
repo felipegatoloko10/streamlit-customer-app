@@ -7,124 +7,122 @@ st.set_page_config(
 )
 
 st.title("💰 Calculadora de Preço para Impressão 3D")
-st.markdown("Preencha os campos abaixo para calcular o preço de venda sugerido para seus produtos.")
+st.markdown("Altere qualquer campo para recalcular o preço de venda em tempo real.")
+
+# --- Dicionário para guardar todos os inputs ---
+if 'calc_inputs' not in st.session_state:
+    st.session_state.calc_inputs = {
+        'design_hours': 0.0, 'design_rate': 100.0,
+        'slice_hours': 0.0, 'slice_rate': 40.0,
+        'assembly_hours': 0.0, 'assembly_rate': 30.0,
+        'post_process_h': 0.0, 'labor_rate_h': 30.0,
+        'print_time_h': 0.0,
+        'material_weight_g': 0.0, 'filament_cost_kg': 120.0,
+        'printer_consumption_w': 150.0, 'kwh_cost': 0.78,
+        'printer_wear_rate_h': 1.50,
+        'failure_rate_percent': 5.0,
+        'complexity_factor': 1.0,
+        'urgency_fee_percent': 0.0,
+        'profit_margin_percent': 50.0
+    }
+
+inputs = st.session_state.calc_inputs
 
 # --- Funções de Cálculo ---
 def calculate_costs(inputs):
     """Calcula todos os custos e o preço final com base nos inputs."""
     
-    # 1. Custo de Design
+    # Custo de Mão de Obra e Tempo
     cost_design = inputs['design_hours'] * inputs['design_rate']
-    
-    # 2. Custo de Material
-    # Custo do filamento por grama
+    cost_slice = inputs['slice_hours'] * inputs['slice_rate']
+    cost_assembly = inputs['assembly_hours'] * inputs['assembly_rate']
+    cost_post_process = inputs['post_process_h'] * inputs['labor_rate_h']
+    total_labor_cost = cost_design + cost_slice + cost_assembly + cost_post_process
+
+    # Custo de Material
     cost_per_gram = inputs['filament_cost_kg'] / 1000
     cost_material = inputs['material_weight_g'] * cost_per_gram
     
-    # 3. Custo de Impressão
-    cost_printing = inputs['print_time_h'] * inputs['printer_rate_h']
+    # Custo de Impressão (Eletricidade + Desgaste)
+    cost_electricity = (inputs['printer_consumption_w'] / 1000) * inputs['print_time_h'] * inputs['kwh_cost']
+    cost_printer_wear = inputs['print_time_h'] * inputs['printer_wear_rate_h']
+    total_printing_cost = cost_electricity + cost_printer_wear
+
+    # Custo de Produção (Subtotal)
+    subtotal = total_labor_cost + cost_material + total_printing_cost
     
-    # 4. Custo de Mão de Obra (Pós-processamento)
-    cost_labor = inputs['post_process_h'] * inputs['labor_rate_h']
+    # Aplicar Fator de Complexidade
+    cost_with_complexity = subtotal * inputs['complexity_factor']
+
+    # Adicionar Taxa de Falha
+    cost_with_failure = cost_with_complexity * (1 + (inputs['failure_rate_percent'] / 100))
     
-    # 5. Custo Total de Produção (Subtotal)
-    subtotal = cost_design + cost_material + cost_printing + cost_labor
-    
-    # 6. Adicionar Taxa de Falha
-    cost_with_failure = subtotal * (1 + (inputs['failure_rate_percent'] / 100))
-    
-    # 7. Adicionar Margem de Lucro para o Preço Final
-    final_price = cost_with_failure * (1 + (inputs['profit_margin_percent'] / 100))
+    # Adicionar Taxa de Urgência
+    cost_with_urgency = cost_with_failure * (1 + (inputs['urgency_fee_percent'] / 100))
+
+    # Adicionar Margem de Lucro para o Preço Final
+    final_price = cost_with_urgency * (1 + (inputs['profit_margin_percent'] / 100))
     
     return {
-        "Custo de Design (R$)": cost_design,
-        "Custo de Material (R$)": cost_material,
-        "Custo de Impressão (R$)": cost_printing,
-        "Custo de Mão de Obra (R$)": cost_labor,
-        "Custo Total de Produção (R$)": subtotal,
-        "Custo com Taxa de Falha (R$)": cost_with_failure,
-        "Preço de Venda Final (R$)": final_price
+        "Custo de Mão de Obra Total": total_labor_cost,
+        "Custo de Material": cost_material,
+        "Custo Total de Impressão": total_printing_cost,
+        "Custo de Produção": subtotal,
+        "Custo com Complexidade": cost_with_complexity,
+        "Custo com Taxa de Falha": cost_with_failure,
+        "Custo com Taxa de Urgência": cost_with_urgency,
+        "Preço de Venda Final": final_price
     }
 
-# --- Interface da Calculadora ---
-all_inputs = {}
+# --- Exibição dos Resultados (no topo) ---
+results = calculate_costs(inputs)
+final_price = results["Preço de Venda Final"]
 
+st.subheader("📊 Resultados da Precificação")
 with st.container(border=True):
-    st.subheader("📝 Custos de Design e Projeto")
-    col1, col2 = st.columns(2)
-    with col1:
-        all_inputs['design_hours'] = st.number_input("Horas de design no SolidWorks", min_value=0.0, step=0.5, help="Tempo gasto desenhando e preparando o modelo.")
-    with col2:
-        all_inputs['design_rate'] = st.number_input("Valor da hora de design (R$)", min_value=0.0, value=100.0, step=5.0, help="Quanto você cobra pela sua hora de trabalho qualificado de design.")
-
-with st.container(border=True):
-    st.subheader("🧱 Custos de Material")
-    col1, col2 = st.columns(2)
-    with col1:
-        all_inputs['material_weight_g'] = st.number_input("Peso do material (gramas)", min_value=0.0, step=1.0, help="Peso final da peça impressa, incluindo suportes, se aplicável.")
-    with col2:
-        all_inputs['filament_cost_kg'] = st.number_input("Custo do filamento (R$ por kg)", min_value=0.0, value=120.0, step=10.0, help="Custo do rolo de 1kg do material que você está usando.")
-
-with st.container(border=True):
-    st.subheader("🖨️ Custos de Impressão")
-    col1, col2 = st.columns(2)
-    with col1:
-        all_inputs['print_time_h'] = st.number_input("Tempo de impressão (horas)", min_value=0.0, step=0.25, help="Tempo total que a impressora levará para imprimir a peça.")
-    with col2:
-        all_inputs['printer_rate_h'] = st.number_input("Valor da hora da impressora (R$)", min_value=0.0, value=2.0, step=0.5, help="Custo por hora da impressora, cobrindo eletricidade, desgaste e manutenção.")
-
-with st.container(border=True):
-    st.subheader("🛠️ Custos de Mão de Obra (Pós-Processamento)")
-    col1, col2 = st.columns(2)
-    with col1:
-        all_inputs['post_process_h'] = st.number_input("Tempo de pós-processamento (horas)", min_value=0.0, step=0.25, help="Tempo para remover suportes, lixar, pintar, etc.")
-    with col2:
-        all_inputs['labor_rate_h'] = st.number_input("Valor da hora de mão de obra (R$)", min_value=0.0, value=30.0, step=5.0, help="Custo da sua hora para trabalho manual de finalização.")
-
-with st.container(border=True):
-    st.subheader("📈 Fatores de Negócio")
-    col1, col2 = st.columns(2)
-    with col1:
-        all_inputs['failure_rate_percent'] = st.number_input("Taxa de falha (%)", min_value=0.0, max_value=100.0, value=5.0, step=1.0, help="Porcentagem para cobrir o custo de impressões que falham.")
-    with col2:
-        all_inputs['profit_margin_percent'] = st.number_input("Margem de lucro (%)", min_value=0.0, value=50.0, step=5.0, help="Sua margem de lucro sobre o custo total de produção.")
+    st.success(f"**Preço de Venda Sugerido: R$ {final_price:.2f}**")
+    
+    with st.expander("Ver detalhamento completo dos custos"):
+        # Detalhamento
+        st.metric("Custo Total de Mão de Obra", f"R$ {results['Custo de Mão de Obra Total']:.2f}")
+        st.metric("Custo de Material", f"R$ {results['Custo de Material']:.2f}")
+        st.metric("Custo Total de Impressão (Eletricidade + Desgaste)", f"R$ {results['Custo Total de Impressão']:.2f}")
+        st.divider()
+        st.metric("Custo de Produção (Subtotal)", f"R$ {results['Custo de Produção']:.2f}")
+        st.metric("Custo com Fator de Complexidade", f"R$ {results['Custo com Complexidade']:.2f}", help=f"Multiplicador de {inputs['complexity_factor']}x aplicado.")
+        st.metric("Custo com Taxa de Falha", f"R$ {results['Custo com Taxa de Falha']:.2f}", help=f"{inputs['failure_rate_percent']}% adicionado ao custo.")
+        st.metric("Custo com Taxa de Urgência", f"R$ {results['Custo com Taxa de Urgência']:.2f}", help=f"{inputs['urgency_fee_percent']}% adicionado ao custo.")
+        st.divider()
+        st.metric("Preço de Venda Final (com Lucro)", f"R$ {final_price:.2f}", help=f"{inputs['profit_margin_percent']}% de margem de lucro adicionada.")
 
 st.markdown("---")
+st.subheader("⚙️ Insira os Dados do Projeto")
 
-# --- Botão de Cálculo e Exibição dos Resultados ---
-if st.button("Calcular Preço de Venda", type="primary", use_container_width=True):
-    
-    # Validação para garantir que os inputs principais não são zero
-    if all_inputs['material_weight_g'] == 0 or all_inputs['print_time_h'] == 0:
-        st.warning("Por favor, insira o peso do material e o tempo de impressão para calcular.")
-    else:
-        results = calculate_costs(all_inputs)
-        
-        st.subheader("📊 Resultados da Precificação")
-        
-        final_price = results["Preço de Venda Final (R$)"]
-        
-        st.success(f"**Preço de Venda Sugerido: R$ {final_price:.2f}**")
-        
-        with st.expander("Ver detalhamento dos custos"):
-            col1, col2 = st.columns(2)
-            
-            # Coluna 1: Custos Base
-            col1.markdown("#### Custos de Produção")
-            col1.metric(label="Custo de Design", value=f"R$ {results['Custo de Design (R$)']:.2f}")
-            col1.metric(label="Custo de Material", value=f"R$ {results['Custo de Material (R$)']:.2f}")
-            col1.metric(label="Custo de Impressão", value=f"R$ {results['Custo de Impressão (R$)']:.2f}")
-            col1.metric(label="Custo de Mão de Obra", value=f"R$ {results['Custo de Mão de Obra (R$)']:.2f}")
-            
-            # Coluna 2: Fatores e Total
-            col2.markdown("#### Fatores e Total")
-            col2.metric(label="Custo Total de Produção", value=f"R$ {results['Custo Total de Produção (R$)']:.2f}")
-            col2.metric(label="Custo com Taxa de Falha", value=f"R$ {results['Custo com Taxa de Falha (R$)']:.2f}", help=f"Baseado em {all_inputs['failure_rate_percent']}% de taxa de falha.")
-            
-            # Métrica final com destaque
-            st.divider()
-            st.metric(
-                label="Preço de Venda Final",
-                value=f"R$ {final_price:.2f}",
-                help=f"Calculado com {all_inputs['profit_margin_percent']}% de margem de lucro sobre o custo com falha."
-            )
+# --- Interface de Inputs ---
+with st.container(border=True):
+    with st.expander("👨‍💻 Custos de Mão de Obra e Tempo", expanded=True):
+        c1, c2 = st.columns(2)
+        inputs['design_hours'] = c1.number_input("Horas de design (SolidWorks)", key='des_h', min_value=0.0, step=0.5)
+        inputs['design_rate'] = c2.number_input("Valor da hora de design (R$)", key='des_r', min_value=0.0, step=5.0)
+        inputs['slice_hours'] = c1.number_input("Horas de preparo/fatiamento", key='sli_h', min_value=0.0, step=0.25)
+        inputs['slice_rate'] = c2.number_input("Valor da hora de preparo (R$)", key='sli_r', min_value=0.0, step=5.0)
+        inputs['assembly_hours'] = c1.number_input("Horas de montagem", key='asm_h', min_value=0.0, step=0.25)
+        inputs['assembly_rate'] = c2.number_input("Valor da hora de montagem (R$)", key='asm_r', min_value=0.0, step=5.0)
+        inputs['post_process_h'] = c1.number_input("Horas de pós-processamento", key='pos_h', min_value=0.0, step=0.25)
+        inputs['labor_rate_h'] = c2.number_input("Valor da hora de pós-processamento (R$)", key='pos_r', min_value=0.0, step=5.0)
+
+    with st.expander("🖨️ Custos de Impressão e Material"):
+        c1, c2 = st.columns(2)
+        inputs['print_time_h'] = c1.number_input("Tempo de impressão (horas)", key='pri_h', min_value=0.0, step=0.25)
+        inputs['material_weight_g'] = c1.number_input("Peso do material (gramas)", key='mat_w', min_value=0.0, step=1.0)
+        inputs['filament_cost_kg'] = c2.number_input("Custo do filamento (R$ por kg)", key='mat_c', min_value=0.0, step=10.0)
+        inputs['printer_consumption_w'] = c1.number_input("Consumo da impressora (Watts)", key='ele_w', min_value=0.0, step=10.0)
+        inputs['kwh_cost'] = c2.number_input("Custo da eletricidade (R$ por kWh)", key='ele_c', min_value=0.0, step=0.01, format="%.2f")
+        inputs['printer_wear_rate_h'] = c2.number_input("Desgaste da impressora (R$ por hora)", key='wea_r', min_value=0.0, step=0.50, format="%.2f")
+
+    with st.expander("📈 Fatores de Negócio e Risco"):
+        c1, c2 = st.columns(2)
+        inputs['failure_rate_percent'] = c1.number_input("Taxa de falha (%)", key='fai_p', min_value=0.0, max_value=100.0, step=1.0)
+        inputs['complexity_factor'] = c2.number_input("Fator de complexidade (multiplicador)", key='com_f', min_value=1.0, step=0.1, help="Use 1.0 para normal, 1.5 para complexo, etc.")
+        inputs['urgency_fee_percent'] = c1.number_input("Taxa de urgência (%)", key='urg_p', min_value=0.0, max_value=200.0, step=5.0)
+        inputs['profit_margin_percent'] = c2.number_input("Margem de lucro (%)", key='pro_p', min_value=0.0, step=5.0)
