@@ -9,8 +9,7 @@ EXPORT_LIMIT = 20000 # Limite para exportação completa de dados
 
 st.set_page_config(
     page_title="Banco de Dados de Clientes",
-    page_icon="📊",
-    layout="wide" 
+    page_icon="📊"
 )
 
 st.title("Banco de Dados de Clientes")

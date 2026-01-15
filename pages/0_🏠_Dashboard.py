@@ -5,8 +5,7 @@ import altair as alt
 
 st.set_page_config(
     page_title="Dashboard",
-    page_icon="🏠",
-    layout="wide"
+    page_icon="🏠"
 )
 
 st.title("🏠 Dashboard de Clientes")

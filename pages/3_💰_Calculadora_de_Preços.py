@@ -2,8 +2,7 @@ import streamlit as st
 
 st.set_page_config(
     page_title="Calculadora de Preços",
-    page_icon="💰",
-    layout="wide"
+    page_icon="💰"
 )
 
 st.title("💰 Calculadora de Preço para Impressão 3D")
