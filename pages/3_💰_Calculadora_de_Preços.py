@@ -5,7 +5,8 @@ from streamlit_modal import Modal # Importar Modal
 
 st.set_page_config(
     page_title="Calculadora de Preços",
-    page_icon="💰"
+    page_icon="💰",
+    layout="centered"
 )
 
 # --- Gerenciamento de Predefinições ---
