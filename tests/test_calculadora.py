@@ -8,7 +8,7 @@ import pytest
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # Caminho para o arquivo da calculadora
-file_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'pages', '3_calculadora.py'))
+file_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'pages', '3_💰_Calculadora_de_Preços.py'))
 
 # Carrega o módulo a partir do caminho do arquivo
 spec = importlib.util.spec_from_file_location("calculadora_module", file_path)

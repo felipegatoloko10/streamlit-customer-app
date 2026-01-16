@@ -4,4 +4,4 @@ st.set_page_config()
 
 # Use o st.rerun() para navegar automaticamente para a página do Dashboard
 # Isso faz com que 'app.py' seja apenas um ponto de entrada
-st.switch_page("pages/0_dashboard.py")
+st.switch_page("pages/0_🏠_Dashboard.py")
