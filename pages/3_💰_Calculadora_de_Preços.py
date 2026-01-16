@@ -259,31 +259,32 @@ with st.form("price_calculator_form"):
     with st.container(border=True):
         with st.expander("👨‍💻 Custos de Mão de Obra e Tempo", expanded=True):
             c1, c2 = st.columns(2)
-            # Os valores dos inputs são lidos do session_state para popular o formulário
-            inputs['design_hours'] = c1.number_input("Horas de design (SolidWorks)", min_value=0.0, step=0.5, value=inputs['design_hours'])
-            inputs['design_rate'] = c2.number_input("Valor da hora de design (R$)", min_value=0.0, step=5.0, value=inputs['design_rate'])
-            inputs['slice_hours'] = c1.number_input("Horas de preparo/fatiamento", min_value=0.0, step=0.25, value=inputs['slice_hours'])
-            inputs['slice_rate'] = c2.number_input("Valor da hora de preparo (R$)", min_value=0.0, step=5.0, value=inputs['slice_rate'])
-            inputs['assembly_hours'] = c1.number_input("Horas de montagem", min_value=0.0, step=0.25, value=inputs['assembly_hours'])
-            inputs['assembly_rate'] = c2.number_input("Valor da hora de montagem (R$)", min_value=0.0, step=5.0, value=inputs['assembly_rate'])
-            inputs['post_process_h'] = c1.number_input("Horas de pós-processamento", min_value=0.0, step=0.25, value=inputs['post_process_h'])
-            inputs['labor_rate_h'] = c2.number_input("Valor da hora de pós-processamento (R$)", min_value=0.0, step=5.0, value=inputs['labor_rate_h'])
+            # Os widgets são definidos e seus valores lidos em variáveis locais.
+            # O valor inicial é sempre lido do 'inputs' (que vem do st.session_state).
+            design_hours = c1.number_input("Horas de design (SolidWorks)", min_value=0.0, step=0.5, value=inputs['design_hours'])
+            design_rate = c2.number_input("Valor da hora de design (R$)", min_value=0.0, step=5.0, value=inputs['design_rate'])
+            slice_hours = c1.number_input("Horas de preparo/fatiamento", min_value=0.0, step=0.25, value=inputs['slice_hours'])
+            slice_rate = c2.number_input("Valor da hora de preparo (R$)", min_value=0.0, step=5.0, value=inputs['slice_rate'])
+            assembly_hours = c1.number_input("Horas de montagem", min_value=0.0, step=0.25, value=inputs['assembly_hours'])
+            assembly_rate = c2.number_input("Valor da hora de montagem (R$)", min_value=0.0, step=5.0, value=inputs['assembly_rate'])
+            post_process_h = c1.number_input("Horas de pós-processamento", min_value=0.0, step=0.25, value=inputs['post_process_h'])
+            labor_rate_h = c2.number_input("Valor da hora de pós-processamento (R$)", min_value=0.0, step=5.0, value=inputs['labor_rate_h'])
 
         with st.expander("🖨️ Custos de Impressão e Material"):
             c1, c2 = st.columns(2)
-            inputs['print_time_h'] = c1.number_input("Tempo de impressão (horas)", min_value=0.0, step=0.25, value=inputs['print_time_h'])
-            inputs['material_weight_g'] = c1.number_input("Peso do material (gramas)", min_value=0.0, step=1.0, value=inputs['material_weight_g'])
-            inputs['filament_cost_kg'] = c2.number_input("Custo do filamento (R$ por kg)", min_value=0.0, step=10.0, value=inputs['filament_cost_kg'])
-            inputs['printer_consumption_w'] = c1.number_input("Consumo da impressora (Watts)", min_value=0.0, step=10.0, value=inputs['printer_consumption_w'])
-            inputs['kwh_cost'] = c2.number_input("Custo da eletricidade (R$ por kWh)", min_value=0.0, step=0.01, format="%.2f", value=inputs['kwh_cost'])
-            inputs['printer_wear_rate_h'] = c2.number_input("Desgaste da impressora (R$ por hora)", min_value=0.0, step=0.50, format="%.2f", value=inputs['printer_wear_rate_h'])
+            print_time_h = c1.number_input("Tempo de impressão (horas)", min_value=0.0, step=0.25, value=inputs['print_time_h'])
+            material_weight_g = c1.number_input("Peso do material (gramas)", min_value=0.0, step=1.0, value=inputs['material_weight_g'])
+            filament_cost_kg = c2.number_input("Custo do filamento (R$ por kg)", min_value=0.0, step=10.0, value=inputs['filament_cost_kg'])
+            printer_consumption_w = c1.number_input("Consumo da impressora (Watts)", min_value=0.0, step=10.0, value=inputs['printer_consumption_w'])
+            kwh_cost = c2.number_input("Custo da eletricidade (R$ por kWh)", min_value=0.0, step=0.01, format="%.2f", value=inputs['kwh_cost'])
+            printer_wear_rate_h = c2.number_input("Desgaste da impressora (R$ por hora)", min_value=0.0, step=0.50, format="%.2f", value=inputs['printer_wear_rate_h'])
 
         with st.expander("📈 Fatores de Negócio e Risco"):
             c1, c2 = st.columns(2)
-            inputs['failure_rate_percent'] = c1.number_input("Taxa de falha (%)", min_value=0.0, max_value=100.0, step=1.0, value=inputs['failure_rate_percent'])
-            inputs['complexity_factor'] = c2.number_input("Fator de complexidade (multiplicador)", min_value=1.0, step=0.1, help="Use 1.0 para normal, 1.5 para complexo, etc.", value=inputs['complexity_factor'])
-            inputs['urgency_fee_percent'] = c1.number_input("Taxa de urgência (%)", min_value=0.0, max_value=200.0, step=5.0, value=inputs['urgency_fee_percent'])
-            inputs['profit_margin_percent'] = c2.number_input("Margem de lucro (%)", min_value=0.0, step=5.0, value=inputs['profit_margin_percent'])
+            failure_rate_percent = c1.number_input("Taxa de falha (%)", min_value=0.0, max_value=100.0, step=1.0, value=inputs['failure_rate_percent'])
+            complexity_factor = c2.number_input("Fator de complexidade (multiplicador)", min_value=1.0, step=0.1, help="Use 1.0 para normal, 1.5 para complexo, etc.", value=inputs['complexity_factor'])
+            urgency_fee_percent = c1.number_input("Taxa de urgência (%)", min_value=0.0, max_value=200.0, step=5.0, value=inputs['urgency_fee_percent'])
+            profit_margin_percent = c2.number_input("Margem de lucro (%)", min_value=0.0, step=5.0, value=inputs['profit_margin_percent'])
     
     # Botão de submit para o formulário
     submitted = st.form_submit_button("Calcular Preço", type="primary", use_container_width=True)
@@ -295,10 +296,18 @@ if st.button("🧹 Limpar Formulário", use_container_width=True):
 
 # --- Lógica de Cálculo e Exibição ---
 if submitted:
-    # Quando o formulário é enviado, os valores dos widgets são atribuídos de volta para o dicionário 'inputs'
-    # e então salvos no session_state para persistir entre reruns.
-    st.session_state.calc_inputs = inputs
-    st.session_state.calc_results = calculate_costs(st.session_state.calc_inputs)
+    # Apenas quando o formulário é enviado, criamos o dicionário com os valores atuais dos widgets
+    current_inputs = {
+        'design_hours': design_hours, 'design_rate': design_rate, 'slice_hours': slice_hours, 'slice_rate': slice_rate,
+        'assembly_hours': assembly_hours, 'assembly_rate': assembly_rate, 'post_process_h': post_process_h, 'labor_rate_h': labor_rate_h,
+        'print_time_h': print_time_h, 'material_weight_g': material_weight_g, 'filament_cost_kg': filament_cost_kg,
+        'printer_consumption_w': printer_consumption_w, 'kwh_cost': kwh_cost, 'printer_wear_rate_h': printer_wear_rate_h,
+        'failure_rate_percent': failure_rate_percent, 'complexity_factor': complexity_factor, 'urgency_fee_percent': urgency_fee_percent,
+        'profit_margin_percent': profit_margin_percent
+    }
+    # Salvamos o estado atual e calculamos os resultados
+    st.session_state.calc_inputs = current_inputs
+    st.session_state.calc_results = calculate_costs(current_inputs)
 
 # Exibe os resultados apenas se eles existirem no estado da sessão
 if 'calc_results' in st.session_state:
