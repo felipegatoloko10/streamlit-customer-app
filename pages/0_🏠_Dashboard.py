@@ -144,7 +144,7 @@ else:
                 width=300,
                 height=300
             )
-            st.altair_chart(pie_chart, use_container_width=True)
+            st.altair_chart(pie_chart, width='stretch')
         else:
             st.info("Não há dados de estado para exibir no período.")
 
