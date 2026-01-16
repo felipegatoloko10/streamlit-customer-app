@@ -21,6 +21,11 @@ def clear_form_inputs():
         else:
             st.session_state[key] = ""
 
+# --- Lógica para o botão 'Usar nome do cliente' ---
+if st.session_state.get("use_client_name_for_contact", False):
+    st.session_state.form_contato1 = st.session_state.form_nome
+    st.session_state.use_client_name_for_contact = False # Limpa a flag
+
 # --- Lógica de Estado ---
 # Exibe notificações da busca de CEP
 if 'cep_notification' in st.session_state:
@@ -91,12 +96,19 @@ with st.container(border=True):
             data_nascimento = st.date_input('Data de Nascimento / Fundação', value=None, min_value=datetime.date(1900, 1, 1), key="form_data_nascimento")
 
         with st.expander("Contatos"):
-            col3, col4, col5 = st.columns(3)
-            with col3:
+            col_contato, col_btn_contato = st.columns([0.7, 0.3])
+            with col_contato:
                 contato1 = st.text_input("Nome do Contato 1", key="form_contato1")
-            with col4:
+            with col_btn_contato:
+                st.markdown("##") # Adiciona espaço vertical para alinhar o botão
+                if st.button("👤 Usar nome", help="Copiar o nome do cliente para o campo de contato.", use_container_width=True):
+                    st.session_state.use_client_name_for_contact = True
+                    st.rerun()
+
+            col_tel1, col_cargo = st.columns(2)
+            with col_tel1:
                 telefone1 = st.text_input('Telefone 1', key="form_telefone1")
-            with col5:
+            with col_cargo:
                 cargo = st.text_input("Cargo do Contato 1", key="form_cargo")
             
             st.markdown("---")

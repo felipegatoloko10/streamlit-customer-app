@@ -96,3 +96,14 @@ def is_valid_email(email: str) -> bool:
         return True
     except EmailNotValidError as e:
         raise EmailValueError(f"O formato do e-mail é inválido: {e}")
+
+def get_whatsapp_url(whatsapp: str) -> str:
+    """Gera uma URL de WhatsApp (wa.me) a partir de um número de telefone."""
+    if not whatsapp:
+        return ""
+    # Remove todos os caracteres não numéricos e adiciona o código do país (Brasil)
+    whatsapp_cleaned = re.sub(r'[^0-9]', '', whatsapp)
+    if len(whatsapp_cleaned) >= 10:
+        return f"https://wa.me/55{whatsapp_cleaned}"
+    return "" # Retorna vazio se o número for inválido
+

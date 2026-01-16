@@ -122,10 +122,11 @@ if not df_page.empty:
         "tipo_documento": "Tipo",
         "cpf": st.column_config.TextColumn("CPF", disabled=True),
         "cnpj": st.column_config.TextColumn("CNPJ", disabled=True),
-        "contato1": "Contato 1",
         "telefone1": "Telefone 1",
+        "link_wpp_1": st.column_config.LinkColumn("WhatsApp 1", display_text="🔗 Abrir"),
         "contato2": "Contato 2",
         "telefone2": "Telefone 2",
+        "link_wpp_2": st.column_config.LinkColumn("WhatsApp 2", display_text="🔗 Abrir"),
         "cargo": "Cargo",
         "email": "E-mail",
         "data_nascimento": st.column_config.DateColumn("Nascimento/Fundação", format="DD/MM/YYYY"),
@@ -136,7 +137,7 @@ if not df_page.empty:
     # Define a ordem desejada das colunas
     column_order = [
         'Deletar', 'id', 'nome_completo', 'tipo_documento', 'cpf', 'cnpj',
-        'contato1', 'telefone1', 'contato2', 'telefone2', 'cargo', 'email', 
+        'contato1', 'telefone1', 'link_wpp_1', 'contato2', 'telefone2', 'link_wpp_2', 'cargo', 'email', 
         'data_nascimento', 'cidade', 'estado', 'observacao'
     ]
 
@@ -171,3 +172,5 @@ if not df_page.empty:
                 delete_modal.close()
 else:
     st.info("Nenhum cliente cadastrado corresponde aos filtros aplicados.")
+    if st.button("➕ Cadastrar Novo Cliente"):
+        st.switch_page("pages/1_📝_Cadastro.py")

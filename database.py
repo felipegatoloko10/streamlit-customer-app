@@ -165,9 +165,13 @@ def fetch_data(search_query: str = None, state_filter: str = None, page: int = 1
             df['cpf'] = df['cpf'].apply(validators.format_cpf)
         if 'cnpj' in df.columns:
             df['cnpj'] = df['cnpj'].apply(validators.format_cnpj)
+        
+        # Formata os números de telefone para exibição, mas mantém os dados originais para edição
         if 'telefone1' in df.columns:
+            df['link_wpp_1'] = df['telefone1'].apply(validators.get_whatsapp_url)
             df['telefone1'] = df['telefone1'].apply(validators.format_whatsapp)
         if 'telefone2' in df.columns:
+            df['link_wpp_2'] = df['telefone2'].apply(validators.get_whatsapp_url)
             df['telefone2'] = df['telefone2'].apply(validators.format_whatsapp)
             
         return df

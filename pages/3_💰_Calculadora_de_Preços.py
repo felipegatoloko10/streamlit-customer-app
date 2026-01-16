@@ -9,6 +9,22 @@ st.set_page_config(
     layout="centered"
 )
 
+# --- Lógica para limpar o formulário ---
+if st.session_state.get("clear_calc_form", False):
+    # Reseta o dicionário de inputs para os valores padrão
+    st.session_state.calc_inputs = {
+        'design_hours': 0.0, 'design_rate': 100.0, 'slice_hours': 0.0, 'slice_rate': 40.0,
+        'assembly_hours': 0.0, 'assembly_rate': 30.0, 'post_process_h': 0.0, 'labor_rate_h': 30.0,
+        'print_time_h': 0.0, 'material_weight_g': 0.0, 'filament_cost_kg': 120.0,
+        'printer_consumption_w': 150.0, 'kwh_cost': 0.78, 'printer_wear_rate_h': 1.50,
+        'failure_rate_percent': 5.0, 'complexity_factor': 1.0, 'urgency_fee_percent': 0.0,
+        'profit_margin_percent': 50.0
+    }
+    # Remove os resultados calculados
+    if 'calc_results' in st.session_state:
+        del st.session_state.calc_results
+    st.session_state.clear_calc_form = False # Limpa a flag
+
 # --- Gerenciamento de Predefinições ---
 PRESETS_FILE = "data/presets.json"
 
@@ -148,20 +164,25 @@ with st.expander("💾 Gerenciar Predefinições", expanded=True):
                     st.button("Cancelar", on_click=delete_modal.close)
             
     st.markdown("---")
-    
-    col_save_name, col_save_button = st.columns([0.8, 0.2]) # Ajusta as proporções das colunas
-    with col_save_name:
-        new_preset_name = st.text_input("Nome da nova predefinição:", placeholder="Ex: Peça Pequena PLA", label_visibility="collapsed")
-    
-    with col_save_button:
-        if st.button("💾 Salvar", use_container_width=True, help="Salva a configuração atual como uma nova predefinição"): # Corrigido use_container_width e ícone de disquete
-            if new_preset_name:
-                presets[new_preset_name] = st.session_state.calc_inputs
-                save_presets(presets)
-                st.success(f"Predefinição '{new_preset_name}' salva!")
-                st.rerun()
-            else:
-                st.warning("Por favor, dê um nome para a predefinição.")
+
+    # --- Lógica para Salvar Predefinição com Modal ---
+    save_modal = Modal("Salvar Predefinição", key="save_preset_modal")
+    if st.button("💾 Salvar Configuração Atual", use_container_width=True):
+        save_modal.open()
+
+    if save_modal.is_open():
+        with save_modal.container():
+            new_preset_name = st.text_input("Nome da nova predefinição:", placeholder="Ex: Peça Pequena PLA")
+            if st.button("Salvar", type="primary"):
+                if new_preset_name:
+                    # Salva os valores que estão atualmente nos inputs do formulário
+                    presets[new_preset_name] = st.session_state.calc_inputs
+                    save_presets(presets)
+                    st.success(f"Predefinição '{new_preset_name}' salva!")
+                    save_modal.close()
+                    st.rerun()
+                else:
+                    st.warning("Por favor, dê um nome para a predefinição.")
 
 
 # --- Dicionário para guardar todos os inputs ---
@@ -264,9 +285,14 @@ with st.form("price_calculator_form"):
             inputs['urgency_fee_percent'] = c1.number_input("Taxa de urgência (%)", min_value=0.0, max_value=200.0, step=5.0, value=inputs['urgency_fee_percent'])
             inputs['profit_margin_percent'] = c2.number_input("Margem de lucro (%)", min_value=0.0, step=5.0, value=inputs['profit_margin_percent'])
     
-    # Botão de submit para o formulário
-    submitted = st.form_submit_button("Calcular Preço", type="primary", use_container_width=True)
-
+    # Botões de ação do formulário
+    col_calc, col_clear = st.columns([0.7, 0.3])
+    with col_calc:
+        submitted = st.form_submit_button("Calcular Preço", type="primary", use_container_width=True)
+    with col_clear:
+        if st.button("🧹 Limpar", use_container_width=True):
+            st.session_state.clear_calc_form = True
+            st.rerun()
 
 # --- Lógica de Cálculo e Exibição ---
 if submitted:
