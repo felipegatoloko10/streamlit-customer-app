@@ -1,15 +1,6 @@
 import streamlit as st
 import json
 import os
-
-st.set_page_config(
-    page_title="Calculadora de Preços",
-    page_icon="💰"
-)
-
-import streamlit as st
-import json
-import os
 from streamlit_modal import Modal # Importar Modal
 
 st.set_page_config(
@@ -113,7 +104,7 @@ def save_presets(presets):
 
 # --- Título e Interface de Predefinições ---
 st.title("💰 Calculadora de Preço para Impressão 3D")
-st.markdown("Altere qualquer campo para recalcular o preço de venda em tempo real.")
+st.markdown("Preencha os campos abaixo e clique em 'Calcular' para gerar o preço de venda.")
 
 with st.expander("💾 Gerenciar Predefinições", expanded=True):
     presets = load_presets()
@@ -127,6 +118,8 @@ with st.expander("💾 Gerenciar Predefinições", expanded=True):
     with col_load:
         if st.button("Carregar", use_container_width=True, disabled=not selected_preset): # Corrigido use_container_width
             st.session_state.calc_inputs = presets[selected_preset]
+            if 'calc_results' in st.session_state:
+                del st.session_state.calc_results
             st.success(f"Predefinição '{selected_preset}' carregada!")
             st.rerun()
     
@@ -236,58 +229,70 @@ def calculate_costs(inputs):
         "Preço de Venda Final": final_price
     }
 
-# --- Interface de Inputs ---
 st.markdown("---")
 st.subheader("⚙️ Insira os Dados do Projeto")
 
-with st.container(border=True):
-    with st.expander("👨‍💻 Custos de Mão de Obra e Tempo", expanded=True):
-        c1, c2 = st.columns(2)
-        st.session_state.calc_inputs['design_hours'] = c1.number_input("Horas de design (SolidWorks)", key='des_h', min_value=0.0, step=0.5, value=st.session_state.calc_inputs['design_hours'])
-        st.session_state.calc_inputs['design_rate'] = c2.number_input("Valor da hora de design (R$)", key='des_r', min_value=0.0, step=5.0, value=st.session_state.calc_inputs['design_rate'])
-        st.session_state.calc_inputs['slice_hours'] = c1.number_input("Horas de preparo/fatiamento", key='sli_h', min_value=0.0, step=0.25, value=st.session_state.calc_inputs['slice_hours'])
-        st.session_state.calc_inputs['slice_rate'] = c2.number_input("Valor da hora de preparo (R$)", key='sli_r', min_value=0.0, step=5.0, value=st.session_state.calc_inputs['slice_rate'])
-        st.session_state.calc_inputs['assembly_hours'] = c1.number_input("Horas de montagem", key='asm_h', min_value=0.0, step=0.25, value=st.session_state.calc_inputs['assembly_hours'])
-        st.session_state.calc_inputs['assembly_rate'] = c2.number_input("Valor da hora de montagem (R$)", key='asm_r', min_value=0.0, step=5.0, value=st.session_state.calc_inputs['assembly_rate'])
-        st.session_state.calc_inputs['post_process_h'] = c1.number_input("Horas de pós-processamento", key='pos_h', min_value=0.0, step=0.25, value=st.session_state.calc_inputs['post_process_h'])
-        st.session_state.calc_inputs['labor_rate_h'] = c2.number_input("Valor da hora de pós-processamento (R$)", key='pos_r', min_value=0.0, step=5.0, value=st.session_state.calc_inputs['labor_rate_h'])
+# Envolve todos os inputs em um formulário
+with st.form("price_calculator_form"):
+    with st.container(border=True):
+        with st.expander("👨‍💻 Custos de Mão de Obra e Tempo", expanded=True):
+            c1, c2 = st.columns(2)
+            # Os valores dos inputs são lidos do session_state para popular o formulário
+            inputs['design_hours'] = c1.number_input("Horas de design (SolidWorks)", min_value=0.0, step=0.5, value=inputs['design_hours'])
+            inputs['design_rate'] = c2.number_input("Valor da hora de design (R$)", min_value=0.0, step=5.0, value=inputs['design_rate'])
+            inputs['slice_hours'] = c1.number_input("Horas de preparo/fatiamento", min_value=0.0, step=0.25, value=inputs['slice_hours'])
+            inputs['slice_rate'] = c2.number_input("Valor da hora de preparo (R$)", min_value=0.0, step=5.0, value=inputs['slice_rate'])
+            inputs['assembly_hours'] = c1.number_input("Horas de montagem", min_value=0.0, step=0.25, value=inputs['assembly_hours'])
+            inputs['assembly_rate'] = c2.number_input("Valor da hora de montagem (R$)", min_value=0.0, step=5.0, value=inputs['assembly_rate'])
+            inputs['post_process_h'] = c1.number_input("Horas de pós-processamento", min_value=0.0, step=0.25, value=inputs['post_process_h'])
+            inputs['labor_rate_h'] = c2.number_input("Valor da hora de pós-processamento (R$)", min_value=0.0, step=5.0, value=inputs['labor_rate_h'])
 
-    with st.expander("🖨️ Custos de Impressão e Material"):
-        c1, c2 = st.columns(2)
-        st.session_state.calc_inputs['print_time_h'] = c1.number_input("Tempo de impressão (horas)", key='pri_h', min_value=0.0, step=0.25, value=st.session_state.calc_inputs['print_time_h'])
-        st.session_state.calc_inputs['material_weight_g'] = c1.number_input("Peso do material (gramas)", key='mat_w', min_value=0.0, step=1.0, value=st.session_state.calc_inputs['material_weight_g'])
-        st.session_state.calc_inputs['filament_cost_kg'] = c2.number_input("Custo do filamento (R$ por kg)", key='mat_c', min_value=0.0, step=10.0, value=st.session_state.calc_inputs['filament_cost_kg'])
-        st.session_state.calc_inputs['printer_consumption_w'] = c1.number_input("Consumo da impressora (Watts)", key='ele_w', min_value=0.0, step=10.0, value=st.session_state.calc_inputs['printer_consumption_w'])
-        st.session_state.calc_inputs['kwh_cost'] = c2.number_input("Custo da eletricidade (R$ por kWh)", key='ele_c', min_value=0.0, step=0.01, format="%.2f", value=st.session_state.calc_inputs['kwh_cost'])
-        st.session_state.calc_inputs['printer_wear_rate_h'] = c2.number_input("Desgaste da impressora (R$ por hora)", key='wea_r', min_value=0.0, step=0.50, format="%.2f", value=st.session_state.calc_inputs['printer_wear_rate_h'])
+        with st.expander("🖨️ Custos de Impressão e Material"):
+            c1, c2 = st.columns(2)
+            inputs['print_time_h'] = c1.number_input("Tempo de impressão (horas)", min_value=0.0, step=0.25, value=inputs['print_time_h'])
+            inputs['material_weight_g'] = c1.number_input("Peso do material (gramas)", min_value=0.0, step=1.0, value=inputs['material_weight_g'])
+            inputs['filament_cost_kg'] = c2.number_input("Custo do filamento (R$ por kg)", min_value=0.0, step=10.0, value=inputs['filament_cost_kg'])
+            inputs['printer_consumption_w'] = c1.number_input("Consumo da impressora (Watts)", min_value=0.0, step=10.0, value=inputs['printer_consumption_w'])
+            inputs['kwh_cost'] = c2.number_input("Custo da eletricidade (R$ por kWh)", min_value=0.0, step=0.01, format="%.2f", value=inputs['kwh_cost'])
+            inputs['printer_wear_rate_h'] = c2.number_input("Desgaste da impressora (R$ por hora)", min_value=0.0, step=0.50, format="%.2f", value=inputs['printer_wear_rate_h'])
 
-    with st.expander("📈 Fatores de Negócio e Risco"):
-        c1, c2 = st.columns(2)
-        st.session_state.calc_inputs['failure_rate_percent'] = c1.number_input("Taxa de falha (%)", key='fai_p', min_value=0.0, max_value=100.0, step=1.0, value=st.session_state.calc_inputs['failure_rate_percent'])
-        st.session_state.calc_inputs['complexity_factor'] = c2.number_input("Fator de complexidade (multiplicador)", key='com_f', min_value=1.0, step=0.1, help="Use 1.0 para normal, 1.5 para complexo, etc.", value=st.session_state.calc_inputs['complexity_factor'])
-        st.session_state.calc_inputs['urgency_fee_percent'] = c1.number_input("Taxa de urgência (%)", key='urg_p', min_value=0.0, max_value=200.0, step=5.0, value=st.session_state.calc_inputs['urgency_fee_percent'])
-        st.session_state.calc_inputs['profit_margin_percent'] = c2.number_input("Margem de lucro (%)", key='pro_p', min_value=0.0, step=5.0, value=st.session_state.calc_inputs['profit_margin_percent'])
-
-
-st.markdown("---")
-
-# --- Exibição dos Resultados (no final) ---
-results = calculate_costs(inputs)
-final_price = results["Preço de Venda Final"]
-
-st.subheader("📊 Resultados da Precificação")
-with st.container(border=True):
-    st.success(f"**Preço de Venda Sugerido: R$ {final_price:.2f}**")
+        with st.expander("📈 Fatores de Negócio e Risco"):
+            c1, c2 = st.columns(2)
+            inputs['failure_rate_percent'] = c1.number_input("Taxa de falha (%)", min_value=0.0, max_value=100.0, step=1.0, value=inputs['failure_rate_percent'])
+            inputs['complexity_factor'] = c2.number_input("Fator de complexidade (multiplicador)", min_value=1.0, step=0.1, help="Use 1.0 para normal, 1.5 para complexo, etc.", value=inputs['complexity_factor'])
+            inputs['urgency_fee_percent'] = c1.number_input("Taxa de urgência (%)", min_value=0.0, max_value=200.0, step=5.0, value=inputs['urgency_fee_percent'])
+            inputs['profit_margin_percent'] = c2.number_input("Margem de lucro (%)", min_value=0.0, step=5.0, value=inputs['profit_margin_percent'])
     
-    with st.expander("Ver detalhamento completo dos custos"):
-        # Detalhamento
-        st.metric("Custo Total de Mão de Obra", f"R$ {results['Custo de Mão de Obra Total']:.2f}")
-        st.metric("Custo de Material", f"R$ {results['Custo de Material']:.2f}")
-        st.metric("Custo Total de Impressão (Eletricidade + Desgaste)", f"R$ {results['Custo Total de Impressão']:.2f}")
-        st.divider()
-        st.metric("Custo de Produção (Subtotal)", f"R$ {results['Custo de Produção']:.2f}")
-        st.metric("Custo com Fator de Complexidade", f"R$ {results['Custo com Complexidade']:.2f}", help=f"Multiplicador de {inputs['complexity_factor']}x aplicado.")
-        st.metric("Custo com Taxa de Falha", f"R$ {results['Custo com Taxa de Falha']:.2f}", help=f"{inputs['failure_rate_percent']}% adicionado ao custo.")
-        st.metric("Custo com Taxa de Urgência", f"R$ {results['Custo com Taxa de Urgência']:.2f}", help=f"{inputs['urgency_fee_percent']}% adicionado ao custo.")
-        st.divider()
-        st.metric("Preço de Venda Final (com Lucro)", f"R$ {final_price:.2f}", help=f"{inputs['profit_margin_percent']}% de margem de lucro adicionada.")
+    # Botão de submit para o formulário
+    submitted = st.form_submit_button("Calcular Preço", type="primary", use_container_width=True)
+
+
+# --- Lógica de Cálculo e Exibição ---
+if submitted:
+    # Quando o formulário é enviado, os valores dos widgets são atribuídos de volta para o dicionário 'inputs'
+    # e então salvos no session_state para persistir entre reruns.
+    st.session_state.calc_inputs = inputs
+    st.session_state.calc_results = calculate_costs(st.session_state.calc_inputs)
+
+# Exibe os resultados apenas se eles existirem no estado da sessão
+if 'calc_results' in st.session_state:
+    results = st.session_state.calc_results
+    final_price = results["Preço de Venda Final"]
+
+    st.markdown("---")
+    st.subheader("📊 Resultados da Precificação")
+    with st.container(border=True):
+        st.success(f"**Preço de Venda Sugerido: R$ {final_price:.2f}**")
+        
+        with st.expander("Ver detalhamento completo dos custos"):
+            # Detalhamento
+            st.metric("Custo Total de Mão de Obra", f"R$ {results['Custo de Mão de Obra Total']:.2f}")
+            st.metric("Custo de Material", f"R$ {results['Custo de Material']:.2f}")
+            st.metric("Custo Total de Impressão (Eletricidade + Desgaste)", f"R$ {results['Custo Total de Impressão']:.2f}")
+            st.divider()
+            st.metric("Custo de Produção (Subtotal)", f"R$ {results['Custo de Produção']:.2f}")
+            st.metric("Custo com Fator de Complexidade", f"R$ {results['Custo com Complexidade']:.2f}", help=f"Multiplicador de {st.session_state.calc_inputs['complexity_factor']}x aplicado.")
+            st.metric("Custo com Taxa de Falha", f"R$ {results['Custo com Taxa de Falha']:.2f}", help=f"{st.session_state.calc_inputs['failure_rate_percent']}% adicionado ao custo.")
+            st.metric("Custo com Taxa de Urgência", f"R$ {results['Custo com Taxa de Urgência']:.2f}", help=f"{st.session_state.calc_inputs['urgency_fee_percent']}% adicionado ao custo.")
+            st.divider()
+            st.metric("Preço de Venda Final (com Lucro)", f"R$ {final_price:.2f}", help=f"{st.session_state.calc_inputs['profit_margin_percent']}% de margem de lucro adicionada.")
