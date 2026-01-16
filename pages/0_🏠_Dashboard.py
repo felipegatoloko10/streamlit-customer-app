@@ -6,7 +6,8 @@ import datetime
 
 st.set_page_config(
     page_title="Dashboard",
-    page_icon="🏠"
+    page_icon="🏠",
+    layout="wide"
 )
 
 st.title("🏠 Dashboard de Clientes")
