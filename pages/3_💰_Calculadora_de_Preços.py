@@ -106,6 +106,8 @@ def load_presets():
 
 def save_presets(presets):
     """Salva as predefinições no arquivo JSON."""
+    # Garante que o diretório 'data' exista
+    os.makedirs(os.path.dirname(PRESETS_FILE), exist_ok=True)
     with open(PRESETS_FILE, 'w') as f:
         json.dump(presets, f, indent=4)
 
