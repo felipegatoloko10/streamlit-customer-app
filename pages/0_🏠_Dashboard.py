@@ -97,6 +97,9 @@ if df_charts.empty:
         st.cache_data.clear()
         st.rerun()
 else:
+    # Garante que 'data_cadastro' é datetime para operações locais do dataframe
+    df_charts['data_cadastro'] = pd.to_datetime(df_charts['data_cadastro'])
+    
     # --- Métricas Principais ---
     cliente_recente = df_charts.sort_values(by='data_cadastro', ascending=False).iloc[0]
     estado_mais_comum = clientes_por_estado_series.index[0] if not clientes_por_estado_series.empty else "N/A"
