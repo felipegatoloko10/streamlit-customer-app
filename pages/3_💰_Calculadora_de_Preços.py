@@ -7,6 +7,16 @@ st.set_page_config(
     page_icon="💰"
 )
 
+import streamlit as st
+import json
+import os
+from streamlit_modal import Modal # Importar Modal
+
+st.set_page_config(
+    page_title="Calculadora de Preços",
+    page_icon="💰"
+)
+
 # --- Gerenciamento de Predefinições ---
 PRESETS_FILE = "presets.json"
 
@@ -106,7 +116,7 @@ st.markdown("Altere qualquer campo para recalcular o preço de venda em tempo re
 with st.expander("💾 Gerenciar Predefinições", expanded=True):
     presets = load_presets()
     
-    col_select, col_load, col_delete = st.columns([3, 1, 1])
+    col_select, col_load, col_delete = st.columns([0.7, 0.15, 0.15]) # Ajusta as proporções das colunas
     
     with col_select:
         preset_options = [""] + list(presets.keys())
@@ -119,29 +129,36 @@ with st.expander("💾 Gerenciar Predefinições", expanded=True):
             st.rerun()
     
     with col_delete:
-        if st.button("Excluir", use_container_width=True, disabled=not selected_preset):
+        # Usando modal para confirmação de exclusão
+        delete_modal = Modal(title=f"Confirmar Exclusão: {selected_preset}", key="delete_preset_modal")
+        if st.button("🗑️", use_container_width=True, disabled=not selected_preset, help="Excluir predefinição selecionada"):
             if selected_preset in presets:
-                st.warning(f"Tem certeza que deseja excluir a predefinição '{selected_preset}'?")
-                col_confirm_del, col_cancel_del = st.columns(2)
-                with col_confirm_del:
-                    if st.button("Confirmar Exclusão", key="confirm_delete"):
+                delete_modal.open()
+            else:
+                st.error("Predefinição não encontrada para exclusão.")
+        
+        if delete_modal.is_open():
+            with delete_modal.container():
+                st.write(f"Tem certeza que deseja excluir a predefinição '{selected_preset}'?")
+                col_confirm, col_cancel = st.columns(2)
+                with col_confirm:
+                    if st.button("Confirmar", type="primary"):
                         del presets[selected_preset]
                         save_presets(presets)
                         st.success(f"Predefinição '{selected_preset}' excluída!")
-                        st.rerun()
-                with col_cancel_del:
-                    st.button("Cancelar", key="cancel_delete")
-            else:
-                st.error("Predefinição não encontrada para exclusão.")
+                        delete_modal.close()
+                        st.rerun() # Reruns to update the selectbox
+                with col_cancel:
+                    st.button("Cancelar", on_click=delete_modal.close)
             
     st.markdown("---")
     
-    col_save_name, col_save_button = st.columns([3, 1])
+    col_save_name, col_save_button = st.columns([0.8, 0.2]) # Ajusta as proporções das colunas
     with col_save_name:
         new_preset_name = st.text_input("Nome da nova predefinição:", placeholder="Ex: Peça Pequena PLA", label_visibility="collapsed")
     
     with col_save_button:
-        if st.button("Salvar Atual", use_container_width=True, help="Salva a configuração atual como uma nova predefinição"):
+        if st.button("💾 Salvar", use_container_width=True, help="Salva a configuração atual como uma nova predefinição"): # Ícone de disquete
             if new_preset_name:
                 presets[new_preset_name] = st.session_state.calc_inputs
                 save_presets(presets)
