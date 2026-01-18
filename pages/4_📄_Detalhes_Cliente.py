@@ -2,13 +2,12 @@ import streamlit as st
 import database
 import datetime
 from streamlit_modal import Modal
-from streamlit_copy_button import st_copy_to_clipboard
 
 st.set_page_config(page_title="Detalhes do Cliente", page_icon="📄", layout="centered")
 
-# Helper function to display a field and a copy-able button
+# Helper function to display a field and a copy-able code block
 def display_field_with_copy(label, value, is_date=False, is_text_area=False):
-    """Exibe um campo (desabilitado) com um botão de cópia ao lado."""
+    """Exibe um campo (desabilitado) e um bloco de código para cópia."""
     
     # Converte data para string no formato brasileiro, se aplicável
     if is_date and isinstance(value, (datetime.date, datetime.datetime)):
@@ -20,18 +19,11 @@ def display_field_with_copy(label, value, is_date=False, is_text_area=False):
 
     if is_text_area:
         st.text_area(label, value=display_value, disabled=True, height=150)
-        # For text areas, the copy button should be below
-        if display_value:
-            st_copy_to_clipboard(display_value, label="Copiar Texto", key=f"copy_{label.replace(' ', '_')}")
     else:
-        col1, col2 = st.columns([0.7, 0.3]) # Adjust column width for better aesthetics
-        with col1:
-            st.text_input(label, value=display_value, disabled=True)
-        with col2:
-            if display_value:
-                # Add some vertical space to align with text input
-                st.markdown("<br>", unsafe_allow_html=True) 
-                st_copy_to_clipboard(display_value, label="Copiar", key=f"copy_{label.replace(' ', '_')}")
+        st.text_input(label, value=display_value, disabled=True)
+    
+    if display_value:
+        st.code(display_value, language=None)
     
     st.markdown("---")
 
