@@ -82,9 +82,45 @@ if "selected_customer_id" in st.session_state and st.session_state.selected_cust
 
     if customer:
         st.subheader(f"Detalhes de: {customer.get('nome_completo')}")
-        if st.button("⬅️ Fechar Detalhes", use_container_width=True):
-            del st.session_state.selected_customer_id
-            st.rerun()
+        
+        col_close, col_delete = st.columns([0.8, 0.2])
+        with col_close:
+            if st.button("⬅️ Fechar Detalhes", use_container_width=True):
+                del st.session_state.selected_customer_id
+                st.rerun()
+        with col_delete:
+            delete_modal = Modal(
+                "Confirmar Exclusão", 
+                key="delete_customer_modal",
+                padding=20,
+                max_width=400
+            )
+            if col_delete.button("🗑️ Excluir Cliente", use_container_width=True):
+                delete_modal.open()
+
+            if delete_modal.is_open():
+                with delete_modal.container():
+                    st.write(f"Tem certeza que deseja excluir o cliente **{customer.get('nome_completo')}** (ID: {customer_id})?")
+                    col_confirm_yes, col_confirm_no = st.columns(2)
+                    with col_confirm_yes:
+                        if st.button("Sim, Excluir", use_container_width=True, type="primary"):
+                            original_customer_id = st.session_state.selected_customer_id # Salva antes de apagar
+                            del st.session_state.selected_customer_id # Limpa para retornar à listagem
+                            
+                            try:
+                                database.delete_customer(original_customer_id)
+                                st.session_state['db_status'] = {'success': True, 'message': f"Cliente (ID: {original_customer_id}) excluído com sucesso!"}
+                            except database.DatabaseError as e:
+                                st.session_state['db_status'] = {'success': False, 'message': f"Erro ao excluir cliente (ID: {original_customer_id}): {e}"}
+
+                            delete_modal.close()
+                            st.rerun() # Re-executa para processar a exclusão
+                    with col_confirm_no:
+                        if st.button("Não, Manter", use_container_width=True):
+                            delete_modal.close()
+                            st.rerun() # Re-executa para fechar o modal
+
+
         st.markdown("---")
 
         # Layout dos detalhes (replicando o da página de cadastro)

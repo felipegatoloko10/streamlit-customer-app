@@ -118,6 +118,21 @@ def insert_customer(data: dict):
         conn.rollback()
         raise DatabaseError(f"Ocorreu um erro ao salvar: {e}") from e
 
+def delete_customer(customer_id: int):
+    """Deleta um cliente do banco de dados pelo ID."""
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM customers WHERE id = ?", (customer_id,))
+        conn.commit()
+        logging.info(f"Cliente com ID {customer_id} excluído com sucesso.")
+        if cursor.rowcount == 0:
+            raise DatabaseError(f"Cliente com ID {customer_id} não encontrado para exclusão.")
+    except sqlite3.Error as e:
+        logging.error(f"Erro ao excluir cliente com ID {customer_id}: {e}")
+        conn.rollback()
+        raise DatabaseError(f"Ocorreu um erro ao excluir o cliente: {e}") from e
+
 def _build_where_clause(search_query: str = None, state_filter: str = None, start_date=None, end_date=None):
     params = []
     conditions = []
