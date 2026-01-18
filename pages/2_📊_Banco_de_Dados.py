@@ -4,6 +4,7 @@ import database
 import datetime # Adicionado para formatação de data
 from streamlit_modal import Modal
 import math
+import logging # Adicionar esta linha
 
 # --- Constantes ---
 EXPORT_LIMIT = 20000 # Limite para exportação completa de dados
@@ -149,56 +150,8 @@ if "selected_customer_id" in st.session_state and st.session_state.selected_cust
             display_field_with_copy("Data de Cadastro", customer.get("data_cadastro"), is_date=True)
             display_field_with_copy("ID do Cliente", customer.get("id"))
         
-        # --- Lógica de deleção (novo padrão para evitar travamento) ---
-        if "delete_confirmed" not in st.session_state:
-            st.session_state.delete_confirmed = False
-        
-        if "cancel_delete" not in st.session_state:
-            st.session_state.cancel_delete = False
-        
-        st.markdown("---")
-        with st.container(border=True):
-            st.subheader("Excluir Cliente")
-            st.warning("Esta ação é irreversível e removerá permanentemente o cliente do banco de dados.")
-        
-            delete_modal = Modal("Confirmar Exclusão", key="delete_customer_modal")
-            
-            if st.button("🗑️ Excluir Cliente", type="primary", use_container_width=True):
-                delete_modal.open()
-        
-            if delete_modal.is_open():
-                with delete_modal.container():
-                    st.warning(f"Tem certeza que deseja excluir o cliente '{customer.get('nome_completo')}' (ID: {customer_id})?")
-                    col1, col2 = st.columns(2)
-                    if col1.button("Confirmar Exclusão", type="primary"):
-                        st.session_state.delete_confirmed = True # Set flag
-                        delete_modal.close() # Close modal immediately
-                        st.rerun() # Re-add rerun
-                        st.stop() # Ensure script stops here
-                    if col2.button("Cancelar"):
-                        st.session_state.cancel_delete = True # Set flag
-                        delete_modal.close() # Close modal immediately
-                        st.rerun() # Re-add rerun
-                        st.stop() # Ensure script stops here
-        
-        # Handle deletion after modal interaction and rerun (ocorre em uma nova execução)
-        if st.session_state.delete_confirmed:
-            st.session_state.delete_confirmed = False # Reset flag
-            try:
-                database.delete_customer_by_id(customer_id)
-                st.session_state.db_status = {"success": True, "message": f"Cliente '{customer.get('nome_completo')}' (ID: {customer_id}) excluído com sucesso!"}
-                if "selected_customer_id" in st.session_state:
-                    del st.session_state["selected_customer_id"] # Clear selection to hide details
-            except database.DatabaseError as e:
-                st.session_state.db_status = {"success": False, "message": str(e)}
-            st.rerun() # Final rerun to update UI with deletion status and potentially hide details
-            st.stop() # Ensure script stops here
-        
-        if st.session_state.cancel_delete:
-            st.session_state.cancel_delete = False # Reset flag
-            # No action needed other than clearing the flag, the modal is already closed
-            st.rerun() # Rerun to clear modal state
-            st.stop() # Ensure script stops here    else: # Cliente não encontrado
+
+    else: # Cliente não encontrado
         st.error(f"Cliente com ID {customer_id} não encontrado.")
         if st.button("⬅️ Fechar Detalhes e Voltar", use_container_width=True):
             del st.session_state.selected_customer_id

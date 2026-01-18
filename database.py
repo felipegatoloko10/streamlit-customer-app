@@ -225,21 +225,7 @@ def get_customer_by_id(customer_id: int) -> dict:
     except sqlite3.Error as e:
         raise DatabaseError(f"Erro ao buscar cliente por ID: {e}") from e
 
-def delete_customer_by_id(customer_id: int):
-    """Deleta um cliente do banco de dados pelo seu ID."""
-    conn = get_db_connection()
-    try:
-        cursor = conn.cursor()
-        cursor.execute("DELETE FROM customers WHERE id = ?", (customer_id,))
-        conn.commit()
-        if cursor.rowcount == 0:
-            logging.warning(f"Tentativa de deletar cliente com ID {customer_id} que não existe.")
-            raise DatabaseError(f"Cliente com ID {customer_id} não encontrado.")
-        logging.info(f"Cliente com ID {customer_id} deletado com sucesso.")
-    except sqlite3.Error as e:
-        conn.rollback()
-        logging.error(f"Erro ao deletar cliente com ID {customer_id}: {e}")
-        raise DatabaseError(f"Ocorreu um erro ao deletar o cliente: {e}") from e
+
 
 def fetch_dashboard_data(start_date=None, end_date=None) -> pd.DataFrame:
     """Busca apenas as colunas necessárias para os gráficos e tabelas do dashboard."""
@@ -315,23 +301,17 @@ def _get_updates(edited_df: pd.DataFrame, original_df: pd.DataFrame) -> list:
                 updates.append(update_data)
     return updates
 
-def _get_deletes(edited_df: pd.DataFrame) -> list:
-    if 'Deletar' not in edited_df.columns:
-        return []
-    delete_mask = edited_df['Deletar'] == True
-    return edited_df.loc[delete_mask, 'id'].tolist()
+
 
 def commit_changes(edited_df: pd.DataFrame, original_df: pd.DataFrame):
-    deletes = _get_deletes(edited_df)
-    if 'Deletar' in edited_df.columns:
-        edited_df = edited_df[edited_df['Deletar'] != True]
-        
+    # Lógica de exclusão removida
+    
     try:
         updates = _get_updates(edited_df, original_df)
     except validators.ValidationError as e:
         raise DatabaseError(f"Erro de validação ao salvar: {e}") from e
 
-    if not updates and not deletes:
+    if not updates: 
         return {"updated": 0, "deleted": 0}
 
     conn = get_db_connection()
@@ -341,11 +321,10 @@ def commit_changes(edited_df: pd.DataFrame, original_df: pd.DataFrame):
             update_columns = [col for col in DB_COLUMNS if col != 'data_cadastro']
             update_query = f"UPDATE customers SET {', '.join([f'{col}=?' for col in update_columns])} WHERE id=?"
             cursor.executemany(update_query, updates)
-        if deletes:
-            cursor.executemany("DELETE FROM customers WHERE id=?", [(d,) for d in deletes])
+        # Lógica de exclusão removida
             
         conn.commit()
-        return {"updated": len(updates), "deleted": len(deletes)}
+        return {"updated": len(updates), "deleted": 0}
     except sqlite3.Error as e:
         conn.rollback()
         raise DatabaseError(f"Ocorreu um erro no banco de dados: {e}") from e
