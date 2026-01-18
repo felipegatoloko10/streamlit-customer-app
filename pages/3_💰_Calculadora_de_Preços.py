@@ -12,6 +12,7 @@ DEFAULT_CALC_INPUTS = {
     'failure_rate_percent': 5.0, 'complexity_factor': 1.0, 'urgency_fee_percent': 0.0,
     'profit_margin_percent': 50.0
 }
+DEFAULT_PRESETS = {}
 
 # --- Funções de Lógica de Estado ---
 
@@ -45,7 +46,7 @@ if st.session_state.get("clear_calc_form", False):
     st.session_state.clear_calc_form = False # Limpa a flag
 
 # --- Gerenciamento de Predefinições ---
-PRESETS_FILE = "data/presets.json"
+PRESETS_FILE = "presets.json"
 
 # (As funções load_presets e save_presets permanecem as mesmas)
 def load_presets():

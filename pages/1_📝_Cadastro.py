@@ -18,6 +18,8 @@ def clear_form_inputs():
             st.session_state[key] = None
         elif "tipo_documento" in key:
             st.session_state[key] = "CPF"
+        elif "use_client_name" in key:
+            st.session_state[key] = False
         else:
             st.session_state[key] = ""
 
