@@ -149,8 +149,7 @@ with st.container(border=True):
                 telefone1 = st.text_input('Telefone 1', key="form_telefone1")
             with col_icon1:
                 if WHATSAPP_ICON:
-                    st.markdown('<div style="padding-top: 28px;"></div>', unsafe_allow_html=True) # Spacer
-                    st.markdown(f'<a href="#" id="whatsapp-link-1" target="_blank"><img src="data:image/png;base64,{WHATSAPP_ICON}" width="25"></a>', unsafe_allow_html=True)
+                    st.markdown(f'<div style="padding-top: 5px;"><a href="#" id="whatsapp-link-1" target="_blank"><img src="data:image/png;base64,{WHATSAPP_ICON}" width="25"></a></div>', unsafe_allow_html=True)
             with col_cargo:
                 cargo = st.text_input("Cargo do Contato 1", key="form_cargo")
 
@@ -161,8 +160,7 @@ with st.container(border=True):
                 contato2 = st.text_input("Nome do Contato 2", key="form_contato2")
             with col_icon2:
                  if WHATSAPP_ICON:
-                    st.markdown('<div style="padding-top: 28px;"></div>', unsafe_allow_html=True) # Spacer
-                    st.markdown(f'<a href="#" id="whatsapp-link-2" target="_blank"><img src="data:image/png;base64,{WHATSAPP_ICON}" width="25"></a>', unsafe_allow_html=True)
+                    st.markdown(f'<div style="padding-top: 5px;"><a href="#" id="whatsapp-link-2" target="_blank"><img src="data:image/png;base64,{WHATSAPP_ICON}" width="25"></a></div>', unsafe_allow_html=True)
             with col7:
                 telefone2 = st.text_input('Telefone 2', key="form_telefone2")
 
