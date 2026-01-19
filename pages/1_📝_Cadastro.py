@@ -129,19 +129,60 @@ with st.container(border=True):
                 # Mostra o campo de input normal
                 contato1 = st.text_input("Nome do Contato 1", key="form_contato1")
 
-            col_tel1, col_cargo = st.columns(2)
+            col_tel1, col_icon1, col_cargo = st.columns([0.45, 0.1, 0.45])
             with col_tel1:
                 telefone1 = st.text_input('Telefone 1', key="form_telefone1")
+            with col_icon1:
+                if services.WHATSAPP_ICON_B64:
+                    st.markdown("##") # Espaçador para alinhar
+                    st.markdown(f'<a href="#" id="whatsapp-link-1" target="_blank"><img src="data:image/png;base64,{services.WHATSAPP_ICON_B64}" width="25"></a>', unsafe_allow_html=True)
             with col_cargo:
                 cargo = st.text_input("Cargo do Contato 1", key="form_cargo")
-            
+
             st.markdown("---")
 
-            col6, col7 = st.columns([2, 1])
+            col6, col_icon2, col7 = st.columns([0.8, 0.1, 0.1])
             with col6:
                 contato2 = st.text_input("Nome do Contato 2", key="form_contato2")
+            with col_icon2:
+                 if services.WHATSAPP_ICON_B64:
+                    st.markdown("##") # Espaçador
+                    st.markdown(f'<a href="#" id="whatsapp-link-2" target="_blank"><img src="data:image/png;base64,{services.WHATSAPP_ICON_B64}" width="25"></a>', unsafe_allow_html=True)
             with col7:
                 telefone2 = st.text_input('Telefone 2', key="form_telefone2")
+
+        # --- Injeção de JavaScript para links dinâmicos ---
+        # Este script é uma solução alternativa e pode quebrar em futuras versões do Streamlit
+        js_code = """
+        <script>
+        function setupWhatsAppLink(inputAriaLabel, linkId) {
+            const phoneInput = document.querySelector(`input[aria-label='${inputAriaLabel}']`);
+            const whatsappLink = document.getElementById(linkId);
+
+            if (phoneInput && whatsappLink) {
+                const updateLink = () => {
+                    let phoneValue = phoneInput.value.replace(/[^0-9]/g, '');
+                    if (phoneValue.length >= 10) {
+                        whatsappLink.href = `https://wa.me/55${phoneValue}`;
+                    } else {
+                        whatsappLink.href = '#';
+                    }
+                };
+                
+                phoneInput.addEventListener('keyup', updateLink);
+                // Atualiza o link na carga inicial também
+                updateLink();
+            }
+        }
+
+        // Garante que o script rode após a renderização dos elementos
+        setTimeout(() => {
+            setupWhatsAppLink('Telefone 1', 'whatsapp-link-1');
+            setupWhatsAppLink('Telefone 2', 'whatsapp-link-2');
+        }, 500);
+        </script>
+        """
+        st.components.v1.html(js_code, height=0)
 
         with st.expander("Endereço"):
             col_end, col_num = st.columns([3, 1])

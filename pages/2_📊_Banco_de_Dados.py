@@ -245,14 +245,33 @@ if "selected_customer_id" in st.session_state and st.session_state.selected_cust
 
         with st.expander("Contatos", expanded=True):
             editable_field("Nome do Contato 1", customer.get('contato1'), 'contato1')
-            col_tel1, col_cargo = st.columns(2)
+            
+            # --- Telefone 1 com Ícone WhatsApp ---
+            col_tel1, col_icon1, col_cargo = st.columns([0.45, 0.1, 0.45])
             with col_tel1:
                 editable_field('Telefone 1', customer.get('telefone1'), 'telefone1')
+            with col_icon1:
+                if customer.get('telefone1') and services.WHATSAPP_ICON_B64:
+                    st.markdown("##") # Espaçador para alinhar verticalmente
+                    unformatted_phone = validators.unformat_whatsapp(customer.get('telefone1'))
+                    whatsapp_url = validators.get_whatsapp_url(unformatted_phone)
+                    st.markdown(f'<a href="{whatsapp_url}" target="_blank"><img src="data:image/png;base64,{services.WHATSAPP_ICON_B64}" width="25"></a>', unsafe_allow_html=True)
             with col_cargo:
                 editable_field("Cargo do Contato 1", customer.get('cargo'), 'cargo')
             
+            st.markdown("---")
             editable_field("Nome do Contato 2", customer.get('contato2'), 'contato2')
-            editable_field('Telefone 2', customer.get('telefone2'), 'telefone2')
+            
+            # --- Telefone 2 com Ícone WhatsApp ---
+            col_tel2, col_icon2 = st.columns([0.9, 0.1])
+            with col_tel2:
+                editable_field('Telefone 2', customer.get('telefone2'), 'telefone2')
+            with col_icon2:
+                if customer.get('telefone2') and services.WHATSAPP_ICON_B64:
+                    st.markdown("##") # Espaçador
+                    unformatted_phone_2 = validators.unformat_whatsapp(customer.get('telefone2'))
+                    whatsapp_url_2 = validators.get_whatsapp_url(unformatted_phone_2)
+                    st.markdown(f'<a href="{whatsapp_url_2}" target="_blank"><img src="data:image/png;base64,{services.WHATSAPP_ICON_B64}" width="25"></a>', unsafe_allow_html=True)
 
         with st.expander("Endereço", expanded=True):
             editable_field("CEP", customer.get("cep"), 'cep', customer_data=customer)
