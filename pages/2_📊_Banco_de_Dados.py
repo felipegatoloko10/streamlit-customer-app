@@ -14,6 +14,17 @@ st.set_page_config(
 )
 EXPORT_LIMIT = 20000
 
+# --- Lógica de Roteamento via URL ---
+if "id" in st.query_params:
+    try:
+        # Pega o ID da URL, define como cliente selecionado e limpa o param
+        customer_id_from_url = int(st.query_params["id"])
+        st.session_state.selected_customer_id = customer_id_from_url
+        st.query_params.clear()
+    except (ValueError, TypeError):
+        # Se o ID não for um número válido, apenas limpa
+        st.query_params.clear()
+
 # Lógica para garantir que os detalhes do cliente sejam fechados ao retornar à página
 # Somente resetamos selected_customer_id se não há uma seleção ativa na tabela NESTA execução
 if 'selected_customer_id' in st.session_state and st.session_state.selected_customer_id is not None:

@@ -61,3 +61,75 @@ def fetch_cnpj_data(cnpj):
     except Exception as e:
         st.session_state.form_error = f"Ocorreu um erro inesperado ao processar os dados do CNPJ: {e}"
 
+def send_new_customer_email(customer_data: dict, customer_id: int):
+    """Envia um e-mail de notificação para o admin sobre um novo cliente cadastrado."""
+    import smtplib
+    from email.mime.text import MIMEText
+    from email.mime.multipart import MIMEMultipart
+
+    # --- Verifica se os segredos para o e-mail estão configurados ---
+    if not all(k in st.secrets for k in ["GMAIL_USERNAME", "GMAIL_PASSWORD"]):
+        st.warning("As credenciais de e-mail não foram configuradas. A notificação não será enviada.")
+        return
+
+    sender_email = st.secrets["GMAIL_USERNAME"]
+    password = st.secrets["GMAIL_PASSWORD"]
+    receiver_email = sender_email # Envia o e-mail para si mesmo
+
+    # --- Monta o corpo do e-mail ---
+    message = MIMEMultipart("alternative")
+    message["Subject"] = f"Novo Cliente Cadastrado: {customer_data.get('nome_completo')}"
+    message["From"] = sender_email
+    message["To"] = receiver_email
+
+    # Constrói a URL do App (ajuste se o nome do seu app for diferente)
+    app_url = f"https://felipegatoloko10-streamlit-customer-app.streamlit.app/2_📊_Banco_de_Dados?id={customer_id}"
+
+    text_body = f"""
+    Um novo cliente foi cadastrado no sistema.
+
+    Nome: {customer_data.get('nome_completo')}
+    Documento: {customer_data.get('cpf') or customer_data.get('cnpj')}
+    Telefone: {customer_data.get('telefone1')}
+    E-mail: {customer_data.get('email')}
+    Cidade: {customer_data.get('cidade')} - {customer_data.get('estado')}
+
+    Acesse o perfil do cliente diretamente pelo link: {app_url}
+    """
+
+    html_body = f"""
+    <html>
+    <body>
+        <p>Um novo cliente foi cadastrado no sistema.</p>
+        <h3>Dados do Cliente:</h3>
+        <ul>
+            <li><strong>Nome:</strong> {customer_data.get('nome_completo')}</li>
+            <li><strong>Documento:</strong> {customer_data.get('cpf') or customer_data.get('cnpj')}</li>
+            <li><strong>Telefone:</strong> {customer_data.get('telefone1')}</li>
+            <li><strong>E-mail:</strong> {customer_data.get('email')}</li>
+            <li><strong>Local:</strong> {customer_data.get('cidade')} - {customer_data.get('estado')}</li>
+        </ul>
+        <p>
+            <a href="{app_url}" style="background-color: #0068c9; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">
+                Ver Perfil do Cliente no App
+            </a>
+        </p>
+    </body>
+    </html>
+    """
+
+    message.attach(MIMEText(text_body, "plain"))
+    message.attach(MIMEText(html_body, "html"))
+
+    # --- Envia o e-mail ---
+    try:
+        with smtplib.SMTP("smtp.gmail.com", 587) as server:
+            server.starttls()
+            server.login(sender_email, password)
+            server.sendmail(sender_email, receiver_email, message.as_string())
+        st.toast("📧 E-mail de notificação enviado com sucesso!")
+    except Exception as e:
+        # Não trava a aplicação se o e-mail falhar, apenas avisa.
+        st.warning(f"Ocorreu um erro ao enviar o e-mail de notificação: {e}")
+
+

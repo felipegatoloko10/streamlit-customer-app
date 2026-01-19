@@ -3,6 +3,7 @@ import pandas as pd
 import streamlit as st
 import logging
 import validators
+import services
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -107,8 +108,16 @@ def insert_customer(data: dict):
         
         cursor = conn.cursor()
         cursor.execute(sql, list(data_to_insert.values()))
+        new_customer_id = cursor.lastrowid  # Pega o ID do cliente recém-criado
         conn.commit()
-        logging.info(f"Cliente '{data.get('nome_completo')}' inserido com sucesso.")
+        logging.info(f"Cliente '{data.get('nome_completo')}' inserido com sucesso com ID: {new_customer_id}.")
+
+        # Tenta enviar o e-mail de notificação (sem quebrar a aplicação se falhar)
+        try:
+            services.send_new_customer_email(data, new_customer_id)
+        except Exception as e:
+            logging.error(f"Falha ao enviar e-mail de notificação para o cliente ID {new_customer_id}: {e}")
+            # O st.warning será mostrado na tela pelo próprio service
         
     except sqlite3.IntegrityError as e:
         logging.warning(f"Tentativa de inserir CPF/CNPJ duplicado.")
