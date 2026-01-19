@@ -137,9 +137,9 @@ with st.container(border=True):
             
             if use_client_name:
                 # Mostra o nome do cliente em um campo desabilitado
-                st.text_input("Nome do Contato 1", value=nome, disabled=True)
+                st.text_input("Nome do Contato 1", value=st.session_state.form_nome, disabled=True)
                 # Salva o nome do cliente no estado do contato para consistência
-                contato1 = nome
+                contato1 = st.session_state.form_nome
             else:
                 # Mostra o campo de input normal
                 contato1 = st.text_input("Nome do Contato 1", key="form_contato1")
@@ -221,7 +221,7 @@ with st.container(border=True):
             observacao = st.text_area("Observações", "", height=150, max_chars=1000, key="form_observacao")
 
         st.markdown("---")
-        submit_button = st.form_submit_button('Salvar Cliente', type="primary", width='stretch')
+        submit_button = st.form_submit_button('Salvar Cliente', type="primary", use_container_width=True)
 
 if submit_button:
     cpf_valor, cnpj_valor = (validators.format_cpf(documento), None) if tipo_documento == "CPF" else (None, validators.format_cnpj(documento))
