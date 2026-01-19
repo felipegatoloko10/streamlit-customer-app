@@ -9,6 +9,7 @@ import urllib.parse
 import services
 import base64
 import os
+import validators
 
 # --- Configurações da Página e Constantes ---
 st.set_page_config(
