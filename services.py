@@ -1,20 +1,6 @@
 import streamlit as st
 import requests
 import re
-import base64
-import os
-
-# --- Constantes de Ícones ---
-@st.cache_data
-def load_whatsapp_icon_b64():
-    """Lê a imagem do ícone do WhatsApp e a converte para base64, com cache."""
-    image_path = os.path.join(os.path.dirname(__file__), 'whatsapp.png')
-    try:
-        with open(image_path, "rb") as image_file:
-            return base64.b64encode(image_file.read()).decode('utf-8')
-    except FileNotFoundError:
-        st.warning("Arquivo 'whatsapp.png' não encontrado. O ícone do WhatsApp não será exibido.")
-        return None
 
 def fetch_address_data(cep):
     cep_cleaned = re.sub(r'[^0-9]', '', cep)

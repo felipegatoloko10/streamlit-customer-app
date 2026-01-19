@@ -4,10 +4,22 @@ import database
 import validators
 import requests
 import re
+import base64
+import os
 
 st.set_page_config(page_title="Cadastro de Clientes", page_icon="📝", layout="centered")
 
-# --- Funções ---
+# --- Funções Utilitárias Locais ---
+@st.cache_data
+def load_whatsapp_icon_b64():
+    """Lê a imagem do ícone do WhatsApp e a converte para base64, com cache."""
+    image_path = os.path.join(os.path.dirname(__file__), '..', 'whatsapp.png')
+    try:
+        with open(image_path, "rb") as image_file:
+            return base64.b64encode(image_file.read()).decode('utf-8')
+    except FileNotFoundError:
+        st.warning("Arquivo 'whatsapp.png' não encontrado. O ícone do WhatsApp não será exibido.")
+        return None
 
 import services
 
@@ -29,7 +41,7 @@ if st.session_state.get("use_client_name_for_contact", False):
     st.session_state.use_client_name_for_contact = False
 
 # --- Carrega o ícone do WhatsApp ---
-WHATSAPP_ICON = services.load_whatsapp_icon_b64()
+WHATSAPP_ICON = load_whatsapp_icon_b64()
 
 # --- Lógica para atualizar o CEP vindo da busca de CNPJ ---
 if "cep_from_cnpj" in st.session_state:

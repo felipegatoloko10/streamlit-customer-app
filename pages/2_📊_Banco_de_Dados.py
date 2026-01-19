@@ -7,6 +7,8 @@ import math
 import logging
 import urllib.parse
 import services
+import base64
+import os
 
 # --- Configurações da Página e Constantes ---
 st.set_page_config(
@@ -14,7 +16,19 @@ st.set_page_config(
     page_icon="📊"
 )
 EXPORT_LIMIT = 20000
-WHATSAPP_ICON = services.load_whatsapp_icon_b64()
+
+@st.cache_data
+def load_whatsapp_icon_b64():
+    """Lê a imagem do ícone do WhatsApp e a converte para base64, com cache."""
+    image_path = os.path.join(os.path.dirname(__file__), '..', 'whatsapp.png')
+    try:
+        with open(image_path, "rb") as image_file:
+            return base64.b64encode(image_file.read()).decode('utf-8')
+    except FileNotFoundError:
+        st.warning("Arquivo 'whatsapp.png' não encontrado. O ícone do WhatsApp não será exibido.")
+        return None
+
+WHATSAPP_ICON = load_whatsapp_icon_b64()
 
 # --- Lógica de Roteamento via URL ---
 if "id" in st.query_params:
