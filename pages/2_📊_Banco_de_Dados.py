@@ -20,17 +20,19 @@ if "id" in st.query_params:
         # Pega o ID da URL, define como cliente selecionado e limpa o param
         customer_id_from_url = int(st.query_params["id"])
         st.session_state.selected_customer_id = customer_id_from_url
+        st.session_state.came_from_url = True # Sinaliza que a seleção veio da URL
         st.query_params.clear()
     except (ValueError, TypeError):
         # Se o ID não for um número válido, apenas limpa
         st.query_params.clear()
 
 # Lógica para garantir que os detalhes do cliente sejam fechados ao retornar à página
-# Somente resetamos selected_customer_id se não há uma seleção ativa na tabela NESTA execução
 if 'selected_customer_id' in st.session_state and st.session_state.selected_customer_id is not None:
-    # Verifica se a 'customer_grid' existe na session_state e se há linhas selecionadas
-    # Se não houver 'customer_grid' ou se não houver linhas selecionadas, resetamos.
-    if not st.session_state.get('customer_grid', {}).get('selection', {}).get('rows', []):
+    # Se a seleção veio da URL, não faz nada e consome a flag.
+    if st.session_state.get("came_from_url", False):
+        st.session_state.came_from_url = False
+    # Caso contrário, aplica a lógica normal de reset se a seleção da tabela for limpa
+    elif not st.session_state.get('customer_grid', {}).get('selection', {}).get('rows', []):
         st.session_state.selected_customer_id = None
         st.rerun() # Dispara um rerun para atualizar a UI imediatamente
 
