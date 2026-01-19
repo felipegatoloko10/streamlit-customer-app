@@ -283,7 +283,7 @@ else:
         column_config = {
             "id": st.column_config.NumberColumn("ID"),
             "nome_completo": "Nome Completo", "cpf": "CPF", "cnpj": "CNPJ",
-            "telefone1": "Telefone 1", "link_wpp_1": st.column_config.LinkColumn("WhatsApp 1", display_text="🔗 Abrir"),
+            "telefone1": "Telefone 1", "link_wpp_1": st.column_config.LinkColumn("WhatsApp 1", display_text="🟢"),
             "cidade": "Cidade", "estado": "Estado",
         }
         visible_columns = ['id', 'nome_completo', 'link_wpp_1', 'cpf', 'cnpj', 'telefone1', 'cidade', 'estado']
