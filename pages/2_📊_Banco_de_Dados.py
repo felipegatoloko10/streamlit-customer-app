@@ -6,6 +6,7 @@ from streamlit_modal import Modal
 import math
 import logging
 import urllib.parse
+import services
 
 # --- Configurações da Página e Constantes ---
 st.set_page_config(
@@ -13,6 +14,7 @@ st.set_page_config(
     page_icon="📊"
 )
 EXPORT_LIMIT = 20000
+WHATSAPP_ICON = services.load_whatsapp_icon_b64()
 
 # --- Lógica de Roteamento via URL ---
 if "id" in st.query_params:
@@ -251,11 +253,11 @@ if "selected_customer_id" in st.session_state and st.session_state.selected_cust
             with col_tel1:
                 editable_field('Telefone 1', customer.get('telefone1'), 'telefone1')
             with col_icon1:
-                if customer.get('telefone1') and services.WHATSAPP_ICON_B64:
+                if customer.get('telefone1') and WHATSAPP_ICON:
                     st.markdown("##") # Espaçador para alinhar verticalmente
                     unformatted_phone = validators.unformat_whatsapp(customer.get('telefone1'))
                     whatsapp_url = validators.get_whatsapp_url(unformatted_phone)
-                    st.markdown(f'<a href="{whatsapp_url}" target="_blank"><img src="data:image/png;base64,{services.WHATSAPP_ICON_B64}" width="25"></a>', unsafe_allow_html=True)
+                    st.markdown(f'<a href="{whatsapp_url}" target="_blank"><img src="data:image/png;base64,{WHATSAPP_ICON}" width="25"></a>', unsafe_allow_html=True)
             with col_cargo:
                 editable_field("Cargo do Contato 1", customer.get('cargo'), 'cargo')
             
@@ -267,11 +269,11 @@ if "selected_customer_id" in st.session_state and st.session_state.selected_cust
             with col_tel2:
                 editable_field('Telefone 2', customer.get('telefone2'), 'telefone2')
             with col_icon2:
-                if customer.get('telefone2') and services.WHATSAPP_ICON_B64:
+                if customer.get('telefone2') and WHATSAPP_ICON:
                     st.markdown("##") # Espaçador
                     unformatted_phone_2 = validators.unformat_whatsapp(customer.get('telefone2'))
                     whatsapp_url_2 = validators.get_whatsapp_url(unformatted_phone_2)
-                    st.markdown(f'<a href="{whatsapp_url_2}" target="_blank"><img src="data:image/png;base64,{services.WHATSAPP_ICON_B64}" width="25"></a>', unsafe_allow_html=True)
+                    st.markdown(f'<a href="{whatsapp_url_2}" target="_blank"><img src="data:image/png;base64,{WHATSAPP_ICON}" width="25"></a>', unsafe_allow_html=True)
 
         with st.expander("Endereço", expanded=True):
             editable_field("CEP", customer.get("cep"), 'cep', customer_data=customer)

@@ -28,6 +28,9 @@ if st.session_state.get("use_client_name_for_contact", False):
     st.session_state.form_contato1 = st.session_state.get("form_nome", "")
     st.session_state.use_client_name_for_contact = False
 
+# --- Carrega o ícone do WhatsApp ---
+WHATSAPP_ICON = services.load_whatsapp_icon_b64()
+
 # --- Lógica para atualizar o CEP vindo da busca de CNPJ ---
 if "cep_from_cnpj" in st.session_state:
     st.session_state.cep_input = st.session_state.pop("cep_from_cnpj")
@@ -133,9 +136,9 @@ with st.container(border=True):
             with col_tel1:
                 telefone1 = st.text_input('Telefone 1', key="form_telefone1")
             with col_icon1:
-                if services.WHATSAPP_ICON_B64:
+                if WHATSAPP_ICON:
                     st.markdown("##") # Espaçador para alinhar
-                    st.markdown(f'<a href="#" id="whatsapp-link-1" target="_blank"><img src="data:image/png;base64,{services.WHATSAPP_ICON_B64}" width="25"></a>', unsafe_allow_html=True)
+                    st.markdown(f'<a href="#" id="whatsapp-link-1" target="_blank"><img src="data:image/png;base64,{WHATSAPP_ICON}" width="25"></a>', unsafe_allow_html=True)
             with col_cargo:
                 cargo = st.text_input("Cargo do Contato 1", key="form_cargo")
 
@@ -145,9 +148,9 @@ with st.container(border=True):
             with col6:
                 contato2 = st.text_input("Nome do Contato 2", key="form_contato2")
             with col_icon2:
-                 if services.WHATSAPP_ICON_B64:
+                 if WHATSAPP_ICON:
                     st.markdown("##") # Espaçador
-                    st.markdown(f'<a href="#" id="whatsapp-link-2" target="_blank"><img src="data:image/png;base64,{services.WHATSAPP_ICON_B64}" width="25"></a>', unsafe_allow_html=True)
+                    st.markdown(f'<a href="#" id="whatsapp-link-2" target="_blank"><img src="data:image/png;base64,{WHATSAPP_ICON}" width="25"></a>', unsafe_allow_html=True)
             with col7:
                 telefone2 = st.text_input('Telefone 2', key="form_telefone2")
 
