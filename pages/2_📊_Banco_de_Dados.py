@@ -222,7 +222,6 @@ if "selected_customer_id" in st.session_state and st.session_state.selected_cust
             valor_doc = customer.get('cpf') or customer.get('cnpj')
 
             editable_field('Nome Completo / Razão Social', customer.get('nome_completo'), 'nome_completo')
-            editable_field('WhatsApp / Telefone Principal', customer.get('telefone1'), 'telefone1')
             editable_field(label_doc, valor_doc, 'cpf' if tipo_doc == 'CPF' else 'cnpj')
             
             col_email, col_data = st.columns(2)
@@ -232,10 +231,15 @@ if "selected_customer_id" in st.session_state and st.session_state.selected_cust
                 editable_field('Data de Nascimento / Fundação', customer.get('data_nascimento'), 'data_nascimento', is_date=True)
 
         with st.expander("Contatos", expanded=True):
-            editable_field("Cargo do Contato 1", customer.get('cargo'), 'cargo')
             editable_field("Nome do Contato 1", customer.get('contato1'), 'contato1')
-            editable_field('Telefone 2', customer.get('telefone2'), 'telefone2')
+            col_tel1, col_cargo = st.columns(2)
+            with col_tel1:
+                editable_field('Telefone 1', customer.get('telefone1'), 'telefone1')
+            with col_cargo:
+                editable_field("Cargo do Contato 1", customer.get('cargo'), 'cargo')
+            
             editable_field("Nome do Contato 2", customer.get('contato2'), 'contato2')
+            editable_field('Telefone 2', customer.get('telefone2'), 'telefone2')
 
         with st.expander("Endereço", expanded=True):
             editable_field("CEP", customer.get("cep"), 'cep', customer_data=customer)
@@ -282,7 +286,7 @@ else:
             "telefone1": "Telefone 1", "link_wpp_1": st.column_config.LinkColumn("WhatsApp 1", display_text="🔗 Abrir"),
             "cidade": "Cidade", "estado": "Estado",
         }
-        visible_columns = ['id', 'nome_completo', 'cpf', 'cnpj', 'telefone1', 'link_wpp_1', 'cidade', 'estado']
+        visible_columns = ['id', 'nome_completo', 'link_wpp_1', 'cpf', 'cnpj', 'telefone1', 'cidade', 'estado']
         
         st.dataframe(
             df_page[[col for col in visible_columns if col in df_page.columns]],
