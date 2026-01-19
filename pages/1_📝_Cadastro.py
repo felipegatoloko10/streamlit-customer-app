@@ -141,7 +141,7 @@ with st.container(border=True):
             observacao = st.text_area("Observações", "", height=150, max_chars=1000, key="form_observacao")
 
         st.markdown("---")
-        submit_button = st.form_submit_button('Salvar Cliente', type="primary", use_container_width=True)
+        submit_button = st.form_submit_button('Salvar Cliente', type="primary", width='stretch')
 
 if submit_button:
     cpf_valor, cnpj_valor = (validators.format_cpf(documento), None) if tipo_documento == "CPF" else (None, validators.format_cnpj(documento))

@@ -9,7 +9,7 @@ st.title("💸 Emitir Nota Fiscal de Serviço eletrônica (NFS-e)")
 
 st.write("Você será redirecionado para o portal nacional de emissão de NFS-e.")
 
-st.link_button("Acessar Portal da NFS-e", "https://nfse.gov.br/NFS-e/", use_container_width=True, type="primary")
+st.link_button("Acessar Portal da NFS-e", "https://www.nfse.gov.br/EmissorNacional/Login?ReturnUrl=%2fEmissorNacional", width='stretch', type="primary")
 
 st.markdown("""
 ---

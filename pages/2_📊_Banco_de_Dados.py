@@ -113,14 +113,14 @@ if "selected_customer_id" in st.session_state and st.session_state.selected_cust
         col_close, col_edit, col_delete = st.columns([0.5, 0.25, 0.25])
         
         with col_close:
-            if st.button("⬅️ Fechar Detalhes", use_container_width=True):
+            if st.button("⬅️ Fechar Detalhes", width='stretch'):
                 st.session_state.edit_mode = False
                 del st.session_state.selected_customer_id
                 st.rerun()
 
         with col_edit:
             if st.session_state.edit_mode:
-                if st.button("💾 Salvar Alterações", use_container_width=True, type="primary"):
+                if st.button("💾 Salvar Alterações", width='stretch', type="primary"):
                     try:
                         # Pega apenas os dados que foram realmente alterados
                         changes_to_save = {}
