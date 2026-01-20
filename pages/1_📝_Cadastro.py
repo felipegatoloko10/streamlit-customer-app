@@ -44,7 +44,7 @@ def update_contato1_from_nome():
         # para evitar que um nome antigo persista.
         if st.session_state.get("form_contato1", "") == st.session_state.get("form_nome", ""):
             st.session_state.form_contato1 = ""
-    # st.rerun() é chamado automaticamente quando o checkbox altera o valor.
+    st.rerun() # Força um rerun para atualizar a UI imediatamente.
 
 # --- Lógica para o botão 'Usar nome do cliente' ---
 if st.session_state.get("use_client_name_for_contact", False):
