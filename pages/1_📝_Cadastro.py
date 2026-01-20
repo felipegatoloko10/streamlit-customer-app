@@ -120,10 +120,10 @@ with st.container(border=True):
     if "form_nome" not in st.session_state: st.session_state.form_nome = ""
     if "form_documento" not in st.session_state: st.session_state.form_documento = ""
 
-    st.session_state.form_nome = st.text_input('Nome Completo / Razão Social *', key="form_nome", value=st.session_state.form_nome)
+    st.text_input('Nome Completo / Razão Social *', key="form_nome", value=st.session_state.get("form_nome", ""))
 
     label_documento = "CPF *" if tipo_selecionado == "CPF" else "CNPJ *"
-    st.session_state.form_documento = st.text_input(label_documento, key="form_documento", value=st.session_state.form_documento)
+    st.text_input(label_documento, key="form_documento", value=st.session_state.get("form_documento", ""))
 
 
     # --- Lógica de Busca de CNPJ (fora do formulário principal) ---
