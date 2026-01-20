@@ -35,6 +35,17 @@ def clear_form_inputs():
         else:
             st.session_state[key] = ""
 
+def update_contato1_from_nome():
+    """Callback para o checkbox 'Usar nome do cliente como Contato 1'."""
+    if st.session_state.form_use_client_name:
+        st.session_state.form_contato1 = st.session_state.form_nome
+    else:
+        # Se desmarcado, limpa o campo de contato1 se ele for igual ao nome do cliente
+        # para evitar que um nome antigo persista.
+        if st.session_state.get("form_contato1", "") == st.session_state.get("form_nome", ""):
+            st.session_state.form_contato1 = ""
+    # st.rerun() é chamado automaticamente quando o checkbox altera o valor.
+
 # --- Lógica para o botão 'Usar nome do cliente' ---
 if st.session_state.get("use_client_name_for_contact", False):
     st.session_state.form_contato1 = st.session_state.get("form_nome", "")
@@ -91,8 +102,8 @@ st.markdown("---")
 with st.container(border=True):
     # This radio button is now OUTSIDE the form. Its change will trigger a rerun.
     st.subheader("Dados Principais")
-    _, col2 = st.columns([2, 1])
-    with col2:
+    col_tipo_doc, col_radio = st.columns([0.7, 0.3])
+    with col_radio:
         tipo_documento = st.radio(
             "Tipo de Documento", 
             ["CPF", "CNPJ"], 
@@ -104,28 +115,33 @@ with st.container(border=True):
     # We read the value from session state to determine the label
     tipo_selecionado = st.session_state.get("form_tipo_documento", "CPF")
     
+    # --- Inputs de Nome e Documento (fora do formulário principal) ---
+    # Garantimos que as chaves de sessão existam para os campos 'nome' e 'documento'
+    if "form_nome" not in st.session_state: st.session_state.form_nome = ""
+    if "form_documento" not in st.session_state: st.session_state.form_documento = ""
+
+    st.session_state.form_nome = st.text_input('Nome Completo / Razão Social *', key="form_nome", value=st.session_state.form_nome)
+
+    label_documento = "CPF *" if tipo_selecionado == "CPF" else "CNPJ *"
+    st.session_state.form_documento = st.text_input(label_documento, key="form_documento", value=st.session_state.form_documento)
+
+
     # --- Lógica de Busca de CNPJ (fora do formulário principal) ---
     if tipo_selecionado == "CNPJ":
         with st.container():
             col_cnpj_input, col_cnpj_btn = st.columns([0.7, 0.3])
             with col_cnpj_input:
                 # Usamos uma chave diferente para o input de CNPJ na busca para não conflitar com o do formulário
-                cnpj_to_search = st.text_input("CNPJ para busca", key="cnpj_search_input", label_visibility="collapsed", placeholder="Digite o CNPJ para buscar dados")
+                cnpj_to_search = st.text_input("CNPJ para busca", key="cnpj_search_input", label_visibility="collapsed", placeholder="Digite o CNPJ para buscar dados", value=st.session_state.form_documento)
             with col_cnpj_btn:
                 if st.button("🔎 Buscar CNPJ", use_container_width=True):
-                    # O valor do input do CNPJ do formulário é atualizado com o valor da busca
-                    st.session_state.form_documento = cnpj_to_search
+                    st.session_state.form_documento = cnpj_to_search # Atualiza o CNPJ principal antes da busca
                     services.fetch_cnpj_data(cnpj_to_search)
                     st.rerun()
         st.markdown("---")
 
-
+    # --- Formulário Principal (apenas campos secundários) ---
     with st.form(key="new_customer_form", clear_on_submit=False):
-        nome = st.text_input('Nome Completo / Razão Social *', key="form_nome")
-
-        label_documento = "CPF *" if tipo_selecionado == "CPF" else "CNPJ *"
-        documento = st.text_input(label_documento, key="form_documento")
-
         col_email, col_data = st.columns(2)
         with col_email:
             email = st.text_input('E-mail', key="form_email")
@@ -133,16 +149,14 @@ with st.container(border=True):
             data_nascimento = st.date_input('Data de Nascimento / Fundação', value=None, min_value=datetime.date(1900, 1, 1), key="form_data_nascimento")
 
         with st.expander("Contatos"):
-            use_client_name = st.checkbox("Usar nome do cliente como Contato 1", key="form_use_client_name")
+            use_client_name = st.checkbox("Usar nome do cliente como Contato 1", key="form_use_client_name", on_change=update_contato1_from_nome)
+            
+            contato1_value = st.session_state.get("form_contato1", "") # Valor inicial para o input
             
             if use_client_name:
-                # Mostra o nome do cliente em um campo desabilitado
-                st.text_input("Nome do Contato 1", value=st.session_state.form_nome, disabled=True)
-                # Salva o nome do cliente no estado do contato para consistência
-                contato1 = st.session_state.form_nome
+                contato1 = st.text_input("Nome do Contato 1", value=contato1_value, disabled=True, key="form_contato1_display_only")
             else:
-                # Mostra o campo de input normal
-                contato1 = st.text_input("Nome do Contato 1", key="form_contato1")
+                contato1 = st.text_input("Nome do Contato 1", value=contato1_value, key="form_contato1")
 
             col_tel1, col_icon1, col_cargo = st.columns([0.45, 0.1, 0.45])
             with col_tel1:
@@ -166,7 +180,6 @@ with st.container(border=True):
                     st.markdown(f'<div style="padding-top: 28px;"><a href="#" id="whatsapp-link-2" target="_blank"><img src="data:image/png;base64,{WHATSAPP_ICON}" width="25"></a></div>', unsafe_allow_html=True)
 
         # --- Injeção de JavaScript para links dinâmicos ---
-        # Este script é uma solução alternativa e pode quebrar em futuras versões do Streamlit
         js_code = """
         <script>
         function setupWhatsAppLink(inputAriaLabel, linkId) {
@@ -184,12 +197,10 @@ with st.container(border=True):
                 };
                 
                 phoneInput.addEventListener('keyup', updateLink);
-                // Atualiza o link na carga inicial também
                 updateLink();
             }
         }
 
-        // Garante que o script rode após a renderização dos elementos
         setTimeout(() => {
             setupWhatsAppLink('Telefone 1', 'whatsapp-link-1');
             setupWhatsAppLink('Telefone 2', 'whatsapp-link-2');
@@ -224,10 +235,10 @@ with st.container(border=True):
         submit_button = st.form_submit_button('Salvar Cliente', type="primary", use_container_width=True)
 
 if submit_button:
-    cpf_valor, cnpj_valor = (validators.format_cpf(documento), None) if tipo_documento == "CPF" else (None, validators.format_cnpj(documento))
+    cpf_valor, cnpj_valor = (validators.format_cpf(st.session_state.form_documento), None) if tipo_selecionado == "CPF" else (None, validators.format_cnpj(st.session_state.form_documento))
     
     customer_data = {
-        'nome_completo': nome, 'tipo_documento': tipo_documento, 'cpf': cpf_valor, 'cnpj': cnpj_valor,
+        'nome_completo': st.session_state.form_nome, 'tipo_documento': tipo_selecionado, 'cpf': cpf_valor, 'cnpj': cnpj_valor,
         'contato1': contato1, 'telefone1': validators.format_whatsapp(telefone1), 
         'contato2': contato2, 'telefone2': validators.format_whatsapp(telefone2), 'cargo': cargo,
         'email': email, 'data_nascimento': data_nascimento, 
