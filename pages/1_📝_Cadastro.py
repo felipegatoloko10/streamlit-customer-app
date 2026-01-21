@@ -35,15 +35,14 @@ import services
 def clear_form_inputs():
     """Reseta o estado do formulário para os valores padrão."""
     st.session_state.form_data = DEFAULT_FORM_DATA.copy()
-    # Limpa CEP input separado
     st.session_state.cep_input = ""
-    # Clear any pending messages
     if 'cep_notification' in st.session_state:
         del st.session_state.cep_notification
+    # Clear widget specific keys if they exist in session_state
+    for key in st.session_state.keys():
+        if key.startswith("form_widget_"): # Clean up keys used for form widgets
+            del st.session_state[key]
 
-# Note: update_contato1_from_nome is no longer an on_change callback for the checkbox
-# as the logic is now handled outside the form to avoid StreamlitInvalidFormCallbackError.
-# This function is now effectively unused or can be removed if not called elsewhere.
 
 # --- Carrega o ícone do WhatsApp ---
 WHATSAPP_ICON = load_whatsapp_icon_b64()
@@ -131,146 +130,160 @@ with st.container(border=True):
         st.markdown("---")
 
     with st.form(key="new_customer_form", clear_on_submit=False):
-        col_email, col_data = st.columns(2)
-        with col_email:
-            st.session_state.form_data['email'] = st.text_input(
-                'E-mail', 
-                key="email", 
-                value=st.session_state.form_data['email']
-            )
-        with col_data:
-            st.session_state.form_data['data_nascimento'] = st.date_input(
-                'Data de Nascimento / Fundação', 
-                value=st.session_state.form_data['data_nascimento'], 
-                min_value=datetime.date(1900, 1, 1), 
-                key="data_nascimento"
-            )
+        # Local variables to capture widget inputs
+        # These will hold the values when the form is submitted
+        
+        email_widget = st.text_input('E-mail', key="form_widget_email", value=st.session_state.form_data['email'])
+        data_nascimento_widget = st.date_input('Data de Nascimento / Fundação', value=st.session_state.form_data['data_nascimento'], min_value=datetime.date(1900, 1, 1), key="form_widget_data_nascimento")
 
         with st.expander("Contatos"):
-            # Removed on_change logic from the checkbox
-            st.session_state.form_data['use_client_name'] = st.checkbox(
+            use_client_name_widget = st.checkbox(
                 "Usar nome do cliente como Contato 1", 
-                key="use_client_name", 
+                key="form_widget_use_client_name", 
                 value=st.session_state.form_data['use_client_name']
             )
+            # Logic to update contato1 based on checkbox will be handled after form submission or outside form rendering
             
-            st.session_state.form_data['contato1'] = st.text_input(
+            contato1_widget = st.text_input(
                 "Nome do Contato 1", 
-                value=st.session_state.form_data['contato1'], 
-                key="contato1",
-                disabled=st.session_state.form_data['use_client_name']
+                value=st.session_state.form_data['contato1'], # Initial value from form_data
+                key="form_widget_contato1",
+                disabled=use_client_name_widget # Use the current value of the checkbox widget
             )
 
             col_tel1, col_icon1, col_cargo = st.columns([0.45, 0.1, 0.45])
             with col_tel1:
-                st.session_state.form_data['telefone1'] = st.text_input(
+                telefone1_widget = st.text_input(
                     'Telefone 1', 
-                    key="telefone1", 
+                    key="form_widget_telefone1", 
                     value=st.session_state.form_data['telefone1']
                 )
             with col_icon1:
                 if WHATSAPP_ICON:
-                    whatsapp_link_1 = validators.get_whatsapp_url(validators.unformat_whatsapp(st.session_state.form_data['telefone1']))
+                    whatsapp_link_1 = validators.get_whatsapp_url(validators.unformat_whatsapp(telefone1_widget)) # Use widget's current value
                     st.markdown(f'<div style="padding-top: 28px;"><a href="{whatsapp_link_1}" target="_blank"><img src="data:image/png;base64,{WHATSAPP_ICON}" width="25"></a></div>', unsafe_allow_html=True)
             with col_cargo:
-                st.session_state.form_data['cargo'] = st.text_input(
+                cargo_widget = st.text_input(
                     "Cargo do Contato 1", 
-                    key="cargo", 
+                    key="form_widget_cargo", 
                     value=st.session_state.form_data['cargo']
                 )
 
             st.markdown("---")
-            st.session_state.form_data['contato2'] = st.text_input(
+            contato2_widget = st.text_input(
                 "Nome do Contato 2", 
-                key="contato2", 
+                key="form_widget_contato2", 
                 value=st.session_state.form_data['contato2']
             )
             
             col_tel2, col_icon2 = st.columns([0.9, 0.1])
             with col_tel2:
-                st.session_state.form_data['telefone2'] = st.text_input(
+                telefone2_widget = st.text_input(
                     'Telefone 2', 
-                    key="telefone2", 
+                    key="form_widget_telefone2", 
                     value=st.session_state.form_data['telefone2']
                 )
             with col_icon2:
                  if WHATSAPP_ICON:
-                    whatsapp_link_2 = validators.get_whatsapp_url(validators.unformat_whatsapp(st.session_state.form_data['telefone2']))
+                    whatsapp_link_2 = validators.get_whatsapp_url(validators.unformat_whatsapp(telefone2_widget)) # Use widget's current value
                     st.markdown(f'<div style="padding-top: 28px;"><a href="{whatsapp_link_2}" target="_blank"><img src="data:image/png;base64,{WHATSAPP_ICON}" width="25"></a></div>', unsafe_allow_html=True)
 
         with st.expander("Endereço"):
-            st.session_state.form_data['cep'] = st.text_input(
+            cep_form_widget = st.text_input(
                 'CEP', 
-                key="cep", 
+                key="form_widget_cep", 
                 value=st.session_state.form_data['cep']
             )
             col_end, col_num = st.columns([3, 1])
             with col_end:
-                st.session_state.form_data['endereco'] = st.text_input(
+                endereco_widget = st.text_input(
                     'Endereço', 
-                    key="endereco", 
+                    key="form_widget_endereco", 
                     value=st.session_state.form_data['endereco']
                 )
             with col_num:
-                st.session_state.form_data['numero'] = st.text_input(
+                numero_widget = st.text_input(
                     'Número', 
-                    key="numero", 
+                    key="form_widget_numero", 
                     value=st.session_state.form_data['numero']
                 )
 
             col_bairro, col_comp = st.columns(2)
             with col_bairro:
-                st.session_state.form_data['bairro'] = st.text_input(
+                bairro_widget = st.text_input(
                     'Bairro', 
-                    key="bairro", 
+                    key="form_widget_bairro", 
                     value=st.session_state.form_data['bairro']
                 )
             with col_comp:
-                st.session_state.form_data['complemento'] = st.text_input(
+                complemento_widget = st.text_input(
                     'Complemento', 
-                    key="complemento", 
+                    key="form_widget_complemento", 
                     value=st.session_state.form_data['complemento']
                 )
 
             col_cidade, col_estado = st.columns([3, 1])
             with col_cidade:
-                st.session_state.form_data['cidade'] = st.text_input(
+                cidade_widget = st.text_input(
                     'Cidade', 
-                    key="cidade", 
+                    key="form_widget_cidade", 
                     value=st.session_state.form_data['cidade']
                 )
             with col_estado:
-                st.session_state.form_data['estado'] = st.text_input(
+                estado_widget = st.text_input(
                     'UF', 
                     max_chars=2, 
-                    key="estado", 
+                    key="form_widget_estado", 
                     value=st.session_state.form_data['estado']
                 )
         
         with st.expander("Observações"):
-            st.session_state.form_data['observacao'] = st.text_area(
-                "Observações", "", 
+            observacao_widget = st.text_area(
+                "Observações", 
+                value=st.session_state.form_data['observacao'], 
                 height=150, 
                 max_chars=1000, 
-                key="observacao", 
-                value=st.session_state.form_data['observacao']
+                key="form_widget_observacao"
             )
 
         st.markdown("---")
         submit_button = st.form_submit_button('Salvar Cliente', type="primary", use_container_width=True)
 
 # --- Logic to update contato1 based on checkbox (outside the form) ---
+# This logic is applied on every rerun, ensuring form_data is consistent
 if st.session_state.form_data['use_client_name'] and st.session_state.form_data['contato1'] != st.session_state.form_data['nome_completo']:
     st.session_state.form_data['contato1'] = st.session_state.form_data['nome_completo']
-    # If this causes a visual update, a rerun might be triggered implicitly by Streamlit,
-    # or by the fact that the state changed.
+elif not st.session_state.form_data['use_client_name'] and st.session_state.form_data['contato1'] == st.session_state.form_data['nome_completo']:
+    st.session_state.form_data['contato1'] = "" # Clear if unchecked and it was previously set by this logic
+
 
 if submit_button:
-    # Prepare customer_data from st.session_state.form_data
+    # Update st.session_state.form_data with values from form widgets after submission
+    # This ensures form_data reflects the submitted state
+    st.session_state.form_data['email'] = email_widget
+    st.session_state.form_data['data_nascimento'] = data_nascimento_widget
+    st.session_state.form_data['use_client_name'] = use_client_name_widget
+    st.session_state.form_data['contato1'] = contato1_widget
+    st.session_state.form_data['telefone1'] = telefone1_widget
+    st.session_state.form_data['cargo'] = cargo_widget
+    st.session_state.form_data['contato2'] = contato2_widget
+    st.session_state.form_data['telefone2'] = telefone2_widget
+    st.session_state.form_data['cep'] = cep_form_widget
+    st.session_state.form_data['endereco'] = endereco_widget
+    st.session_state.form_data['numero'] = numero_widget
+    st.session_state.form_data['complemento'] = complemento_widget
+    st.session_state.form_data['bairro'] = bairro_widget
+    st.session_state.form_data['cidade'] = cidade_widget
+    st.session_state.form_data['estado'] = estado_widget
+    st.session_state.form_data['observacao'] = observacao_widget
+
+
+    # Prepare customer_data from the updated st.session_state.form_data
     form_data = st.session_state.form_data
     tipo_selecionado = form_data['tipo_documento']
 
-    cpf_valor, cnpj_valor = (validators.unformat_cpf(form_data['documento']), None) if tipo_selecionado == "CPF" else (None, validators.unformat_cnpj(form_data['documento']))
+    cpf_valor = validators.unformat_cpf(form_data['documento']) if tipo_selecionado == "CPF" else None
+    cnpj_valor = validators.unformat_cnpj(form_data['documento']) if tipo_selecionado == "CNPJ" else None
     
     customer_data = {
         'nome_completo': form_data['nome_completo'], 
