@@ -41,12 +41,9 @@ def clear_form_inputs():
     if 'cep_notification' in st.session_state:
         del st.session_state.cep_notification
 
-def update_contato1_from_nome():
-    """Callback para o checkbox 'Usar nome do cliente como Contato 1'."""
-    if st.session_state.form_data['use_client_name']:
-        st.session_state.form_data['contato1'] = st.session_state.form_data['nome_completo']
-    else:
-        st.session_state.form_data['contato1'] = ""
+# Note: update_contato1_from_nome is no longer an on_change callback for the checkbox
+# as the logic is now handled outside the form to avoid StreamlitInvalidFormCallbackError.
+# This function is now effectively unused or can be removed if not called elsewhere.
 
 # --- Carrega o ícone do WhatsApp ---
 WHATSAPP_ICON = load_whatsapp_icon_b64()
@@ -58,7 +55,6 @@ if 'cep_input' not in st.session_state:
     st.session_state.cep_input = ""
 
 # --- Lógica para atualizar o CEP vindo da busca de CNPJ ---
-# Esta parte agora deve atualizar diretamente st.session_state.form_data['cep']
 if "cep_from_cnpj" in st.session_state:
     st.session_state.form_data['cep'] = st.session_state.pop("cep_from_cnpj")
 
@@ -85,10 +81,8 @@ with st.container(border=True):
     with col2:
         st.markdown("<br/>", unsafe_allow_html=True)
         if st.button("Buscar Endereço"):
-            # Update form_data with services result
             services.fetch_address_data(st.session_state.cep_input, st.session_state.form_data)
             st.rerun()
-
 
 st.markdown("---")
 
@@ -153,11 +147,11 @@ with st.container(border=True):
             )
 
         with st.expander("Contatos"):
+            # Removed on_change logic from the checkbox
             st.session_state.form_data['use_client_name'] = st.checkbox(
                 "Usar nome do cliente como Contato 1", 
                 key="use_client_name", 
-                value=st.session_state.form_data['use_client_name'],
-                on_change=update_contato1_from_nome
+                value=st.session_state.form_data['use_client_name']
             )
             
             st.session_state.form_data['contato1'] = st.text_input(
@@ -203,8 +197,6 @@ with st.container(border=True):
                  if WHATSAPP_ICON:
                     whatsapp_link_2 = validators.get_whatsapp_url(validators.unformat_whatsapp(st.session_state.form_data['telefone2']))
                     st.markdown(f'<div style="padding-top: 28px;"><a href="{whatsapp_link_2}" target="_blank"><img src="data:image/png;base64,{WHATSAPP_ICON}" width="25"></a></div>', unsafe_allow_html=True)
-
-        # Removed JavaScript Injection, as we are now using pythonic way for links
 
         with st.expander("Endereço"):
             st.session_state.form_data['cep'] = st.text_input(
@@ -266,6 +258,12 @@ with st.container(border=True):
 
         st.markdown("---")
         submit_button = st.form_submit_button('Salvar Cliente', type="primary", use_container_width=True)
+
+# --- Logic to update contato1 based on checkbox (outside the form) ---
+if st.session_state.form_data['use_client_name'] and st.session_state.form_data['contato1'] != st.session_state.form_data['nome_completo']:
+    st.session_state.form_data['contato1'] = st.session_state.form_data['nome_completo']
+    # If this causes a visual update, a rerun might be triggered implicitly by Streamlit,
+    # or by the fact that the state changed.
 
 if submit_button:
     # Prepare customer_data from st.session_state.form_data
