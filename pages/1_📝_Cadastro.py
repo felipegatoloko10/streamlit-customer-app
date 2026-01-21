@@ -25,7 +25,7 @@ def load_whatsapp_icon_b64():
     image_path = os.path.join(os.path.dirname(__file__), '..', 'whatsapp.png')
     try:
         with open(image_path, "rb") as f:
-            return base64.b64encode(image_file.read()).decode('utf-8')
+            return base64.b64encode(f.read()).decode('utf-8')
     except FileNotFoundError:
         st.warning("Arquivo 'whatsapp.png' não encontrado. O ícone do WhatsApp não será exibido.")
         return None
