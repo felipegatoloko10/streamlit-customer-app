@@ -2,7 +2,7 @@ import streamlit as st
 import requests
 import re
 
-def fetch_address_data(cep):
+def fetch_address_data(cep, form_data):
     cep_cleaned = re.sub(r'[^0-9]', '', cep)
     if len(cep_cleaned) != 8:
         st.session_state.cep_notification = {"type": "error", "message": "CEP inválido. Deve conter 8 dígitos."}
@@ -16,14 +16,14 @@ def fetch_address_data(cep):
             st.session_state.cep_notification = {"type": "warning", "message": "CEP não encontrado. Por favor, preencha o endereço manualmente."}
         else:
             st.session_state.cep_notification = {"type": "success", "message": "Endereço encontrado!"}
-            st.session_state.form_endereco = data.get("logradouro", "")
-            st.session_state.form_bairro = data.get("bairro", "")
-            st.session_state.form_cidade = data.get("localidade", "")
-            st.session_state.form_estado = data.get("uf", "")
+            form_data['endereco'] = data.get("logradouro", "")
+            form_data['bairro'] = data.get("bairro", "")
+            form_data['cidade'] = data.get("localidade", "")
+            form_data['estado'] = data.get("uf", "")
     except requests.exceptions.RequestException as e:
         st.session_state.cep_notification = {"type": "error", "message": f"Erro de rede ao buscar o CEP: {e}"}
 
-def fetch_cnpj_data(cnpj):
+def fetch_cnpj_data(cnpj, form_data):
     """Busca dados de um CNPJ na BrasilAPI e atualiza o estado do formulário."""
     cnpj_cleaned = re.sub(r'[^0-9]', '', cnpj)
     if len(cnpj_cleaned) != 14:
@@ -40,19 +40,19 @@ def fetch_cnpj_data(cnpj):
             response.raise_for_status()
             data = response.json()
 
-        # Atualiza os campos do formulário no st.session_state
-        st.session_state.form_nome = data.get("razao_social", "")
-        st.session_state.form_email = data.get("email", "")
-        st.session_state.form_telefone1 = data.get("ddd_telefone_1", "")
+        # Atualiza os campos do formulário no form_data
+        form_data['nome_completo'] = data.get("razao_social", "")
+        form_data['email'] = data.get("email", "")
+        form_data['telefone1'] = data.get("ddd_telefone_1", "")
         
-        # Preenche o endereço, usando uma chave temporária para o CEP
-        st.session_state.cep_from_cnpj = data.get("cep", "")
-        st.session_state.form_endereco = data.get("logradouro", "")
-        st.session_state.form_numero = data.get("numero", "")
-        st.session_state.form_complemento = data.get("complemento", "")
-        st.session_state.form_bairro = data.get("bairro", "")
-        st.session_state.form_cidade = data.get("municipio", "")
-        st.session_state.form_estado = data.get("uf", "")
+        # Preenche o endereço
+        form_data['cep'] = data.get("cep", "")
+        form_data['endereco'] = data.get("logradouro", "")
+        form_data['numero'] = data.get("numero", "")
+        form_data['complemento'] = data.get("complemento", "")
+        form_data['bairro'] = data.get("bairro", "")
+        form_data['cidade'] = data.get("municipio", "")
+        form_data['estado'] = data.get("uf", "")
 
         st.success("Dados do CNPJ preenchidos com sucesso!")
 
@@ -68,12 +68,14 @@ def send_new_customer_email(customer_data: dict, customer_id: int):
     from email.mime.multipart import MIMEMultipart
 
     # --- Verifica se os segredos para o e-mail estão configurados ---
-    if not all(k in st.secrets for k in ["name", "key"]):
-        st.warning("As credenciais de e-mail ('name', 'key') não foram configuradas nos Segredos do Streamlit. A notificação não será enviada.")
+    required_secrets = ["name", "key", "app_base_url"]
+    if not all(k in st.secrets for k in required_secrets):
+        st.warning("As credenciais de e-mail ('name', 'key') e a URL base do app ('app_base_url') não foram configuradas nos Segredos do Streamlit. A notificação não será enviada.")
         return
 
     sender_email = st.secrets["name"]
     password = st.secrets["key"]
+    app_base_url = st.secrets["app_base_url"]
     receiver_email = sender_email # Envia o e-mail para si mesmo
 
     # --- Monta o corpo do e-mail ---
@@ -82,8 +84,8 @@ def send_new_customer_email(customer_data: dict, customer_id: int):
     message["From"] = sender_email
     message["To"] = receiver_email
 
-    # Constrói a URL do App com o link fornecido pelo usuário e o caminho "amigável" da página
-    app_url = f"https://wbello3d.streamlit.app/Banco_de_Dados?id={customer_id}"
+    # Constrói a URL do App com a base vinda dos secrets
+    app_url = f"{app_base_url}/Banco_de_Dados?id={customer_id}"
 
     text_body = f"""
     Um novo cliente foi cadastrado no sistema.

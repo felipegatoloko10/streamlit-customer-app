@@ -52,10 +52,14 @@ PRESETS_FILE = "presets.json"
 def load_presets():
     """Carrega as predefinições do arquivo JSON ou retorna as padrão."""
     if os.path.exists(PRESETS_FILE):
-        with open(PRESETS_FILE, 'r') as f:
-            saved_presets = json.load(f)
-            if saved_presets:
-                return saved_presets
+        try:
+            with open(PRESETS_FILE, 'r') as f:
+                saved_presets = json.load(f)
+                if saved_presets:
+                    return saved_presets
+        except json.JSONDecodeError:
+            st.error(f"Erro ao ler o arquivo de predefinições '{PRESETS_FILE}'. O arquivo pode estar corrompido. Considere deletá-lo ou corrigi-lo.")
+            return DEFAULT_PRESETS
     return DEFAULT_PRESETS
 
 def save_presets(presets):

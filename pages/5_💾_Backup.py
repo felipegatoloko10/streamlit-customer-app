@@ -2,6 +2,7 @@ import streamlit as st
 import os
 import shutil
 import datetime
+from streamlit_modal import Modal
 
 st.set_page_config(
     page_title="Backup e Restauração",
@@ -50,29 +51,58 @@ if uploaded_file is not None:
     
     Todos os clientes cadastrados desde a criação deste backup serão perdidos. 
     
-    **Esta ação não pode ser desfeita.**
+    Esta ação criará um backup de segurança do estado atual antes de restaurar, mas prossiga com cautela.
     """)
-    
-    if st.button("Confirmar e Restaurar Backup", type="primary"):
-        try:
-            # Salva o arquivo enviado temporariamente para um caminho seguro
-            temp_restore_path = f"temp_restore_{uploaded_file.name}"
-            with open(temp_restore_path, "wb") as f:
-                f.write(uploaded_file.getbuffer())
-            
-            # Substitui o banco de dados atual pelo arquivo de backup
-            shutil.move(temp_restore_path, DB_FILE)
-            
-            st.success("Banco de dados restaurado com sucesso! O aplicativo será reiniciado para aplicar as alterações.")
-            
-            # Limpa o cache de recursos do Streamlit para forçar a releitura da conexão com o banco de dados
-            st.cache_resource.clear()
-            
-            # Força um rerun para refletir o estado pós-restauração
-            st.rerun()
 
-        except Exception as e:
-            st.error(f"Ocorreu um erro inesperado ao restaurar o backup: {e}")
-            # Se o arquivo temporário ainda existir em caso de erro, remove
-            if os.path.exists(temp_restore_path):
-                os.remove(temp_restore_path)
+    restore_modal = Modal(
+        "Confirmar Restauração",
+        key="restore_modal",
+        padding=20,
+        max_width=500
+    )
+
+    if st.button("Iniciar Processo de Restauração", type="primary"):
+        restore_modal.open()
+
+    if restore_modal.is_open():
+        with restore_modal.container():
+            st.write("### Confirmação Final")
+            st.write(f"Tem certeza de que deseja substituir o banco de dados atual pelo arquivo **{uploaded_file.name}**?")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("Sim, Restaurar Agora", type="primary"):
+                    try:
+                        # 1. Criar um backup de segurança do banco de dados atual, se ele existir
+                        if os.path.exists(DB_FILE):
+                            timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+                            pre_restore_backup_filename = f"pre-restore-backup_{timestamp}.db"
+                            shutil.copy(DB_FILE, pre_restore_backup_filename)
+                            st.info(f"Backup de segurança criado: `{pre_restore_backup_filename}`")
+
+                        # 2. Salvar o arquivo enviado temporariamente
+                        temp_restore_path = f"temp_restore_{uploaded_file.name}"
+                        with open(temp_restore_path, "wb") as f:
+                            f.write(uploaded_file.getbuffer())
+                        
+                        # 3. Substituir o banco de dados atual pelo arquivo de backup
+                        shutil.move(temp_restore_path, DB_FILE)
+                        
+                        st.success("Banco de dados restaurado com sucesso! O aplicativo será reiniciado.")
+                        
+                        # 4. Limpar caches para forçar a releitura do novo BD
+                        st.cache_resource.clear()
+                        st.cache_data.clear()
+                        
+                        restore_modal.close()
+                        st.rerun()
+
+                    except Exception as e:
+                        st.error(f"Ocorreu um erro inesperado durante a restauração: {e}")
+                        if 'temp_restore_path' in locals() and os.path.exists(temp_restore_path):
+                            os.remove(temp_restore_path)
+                        restore_modal.close()
+
+            with col2:
+                if st.button("Cancelar"):
+                    restore_modal.close()

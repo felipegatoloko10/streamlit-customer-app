@@ -34,27 +34,21 @@ WHATSAPP_ICON = load_whatsapp_icon_b64()
 # --- Lógica de Roteamento via URL ---
 if "id" in st.query_params:
     try:
-        # Pega o ID da URL, define como cliente selecionado e limpa o param
         customer_id_from_url = int(st.query_params["id"])
         st.session_state.selected_customer_id = customer_id_from_url
-        st.session_state.came_from_url = True # Sinaliza que a seleção veio da URL
+        st.session_state.came_from_url = True
         st.query_params.clear()
     except (ValueError, TypeError):
-        # Se o ID não for um número válido, apenas limpa
         st.query_params.clear()
 
-# Lógica para garantir que os detalhes do cliente sejam fechados ao retornar à página
 if 'selected_customer_id' in st.session_state and st.session_state.selected_customer_id is not None:
-    # Se a seleção veio da URL, não faz nada e consome a flag.
     if st.session_state.get("came_from_url", False):
         st.session_state.came_from_url = False
-    # Caso contrário, aplica a lógica normal de reset se a seleção da tabela for limpa
     elif not st.session_state.get('customer_grid', {}).get('selection', {}).get('rows', []):
         st.session_state.selected_customer_id = None
-        st.rerun() # Dispara um rerun para atualizar a UI imediatamente
+        st.rerun()
 
-
-# --- Funções Auxiliares ---
+# --- Funções Auxiliares de UI ---
 
 def display_field_with_copy(label, value, is_date=False, is_text_area=False):
     """Exibe um campo de texto não editável com um botão para copiar."""
@@ -73,7 +67,6 @@ def editable_field(label: str, value: any, key: str, is_date=False, is_text_area
     Exibe um campo editável ou estático, com tratamento especial para campos de telefone.
     """
     if st.session_state.get('edit_mode', False):
-        # MODO DE EDIÇÃO: Renderiza widgets de input
         display_value = value if value is not None else ""
         if is_date:
             st.session_state.edited_data[key] = st.date_input(label, value=value, key=f"edit_{key}", help=help_text)
@@ -82,9 +75,7 @@ def editable_field(label: str, value: any, key: str, is_date=False, is_text_area
         else:
             st.session_state.edited_data[key] = st.text_input(label, value=display_value, key=f"edit_{key}", help=help_text)
     else:
-        # MODO DE VISUALIZAÇÃO: Renderiza texto estático
         if is_phone:
-            # Layout especial para telefone com ícone
             col_text, col_icon = st.columns([0.9, 0.1])
             with col_text:
                 display_field_with_copy(label, value, is_date, is_text_area)
@@ -103,7 +94,6 @@ def editable_field(label: str, value: any, key: str, is_date=False, is_text_area
                         unsafe_allow_html=True
                     )
         else:
-            # Layout padrão para outros campos
             display_field_with_copy(label, value, is_date, is_text_area)
 
 # --- Título e Mensagens de Status ---
@@ -116,7 +106,7 @@ if 'db_status' in st.session_state:
     else:
         st.error(status['message'])
 
-# --- Barra Lateral ---
+# --- Sidebar Filters ---
 with st.sidebar:
     st.header("Filtros e Ações")
     search_query = st.text_input("Buscar por Nome ou CPF")
@@ -136,9 +126,9 @@ with st.sidebar:
     page_number = st.number_input('Página', min_value=1, max_value=total_pages, value=1, step=1)
     st.markdown("---")
 
-# --- Lógica de Exibição (Detalhes do Cliente ou Tabela) ---
-if "selected_customer_id" in st.session_state and st.session_state.selected_customer_id:
-    customer_id = st.session_state.selected_customer_id
+# --- Functions for Displaying Content ---
+
+def show_customer_details(customer_id):
     try:
         customer = database.get_customer_by_id(customer_id)
     except database.DatabaseError as e:
@@ -146,7 +136,6 @@ if "selected_customer_id" in st.session_state and st.session_state.selected_cust
         customer = None
 
     if customer:
-        # Inicializa o modo de edição e o dicionário de dados editados
         if 'edit_mode' not in st.session_state:
             st.session_state.edit_mode = False
         if 'edited_data' not in st.session_state:
@@ -154,7 +143,6 @@ if "selected_customer_id" in st.session_state and st.session_state.selected_cust
 
         st.subheader(f"Detalhes de: {customer.get('nome_completo')}")
 
-        # --- Botões de Ação ---
         col_close, col_map, col_edit, col_delete = st.columns([0.4, 0.2, 0.2, 0.2])
         
         with col_close:
@@ -164,7 +152,6 @@ if "selected_customer_id" in st.session_state and st.session_state.selected_cust
                 st.rerun()
 
         with col_map:
-            import urllib.parse # Import moved here to be within the function scope, or can be moved to top level imports
             address_parts = [
                 customer.get('endereco'),
                 customer.get('numero'),
@@ -187,26 +174,10 @@ if "selected_customer_id" in st.session_state and st.session_state.selected_cust
             if st.session_state.edit_mode:
                 if st.button("💾 Salvar Alterações", width='stretch', type="primary"):
                     try:
-                        # Pega apenas os dados que foram realmente alterados
-                        changes_to_save = {}
-                        for key, new_value in st.session_state.edited_data.items():
-                            original_value = customer.get(key)
-                            
-                            # Tratamento especial para datas, que podem vir como objetos datetime
-                            if isinstance(original_value, datetime.date):
-                                original_value = original_value.isoformat()
-                            if isinstance(new_value, datetime.date):
-                                new_value = new_value.isoformat()
-                            
-                            # Considera None e string vazia como "não alterado"
-                            if new_value != original_value and not (new_value in [None, ''] and original_value in [None, '']):
-                                changes_to_save[key] = new_value
-
-                        if changes_to_save:
-                            database.update_customer(customer_id, changes_to_save)
-                            st.session_state['db_status'] = {'success': True, 'message': "Cliente atualizado com sucesso!"}
-                        else:
-                            st.session_state['db_status'] = {'success': True, 'message': "Nenhuma alteração foi feita."}
+                        # Simplificado: Passa todos os dados editados para a função de atualização
+                        # A função de banco de dados já sabe como lidar com as mudanças
+                        database.update_customer(customer_id, st.session_state.edited_data)
+                        st.session_state['db_status'] = {'success': True, 'message': "Cliente atualizado com sucesso!"}
                         
                         st.session_state.edit_mode = False
                         st.session_state.edited_data = {}
@@ -219,10 +190,9 @@ if "selected_customer_id" in st.session_state and st.session_state.selected_cust
             else:
                 if st.button("✏️ Editar Cliente", width='stretch'):
                     st.session_state.edit_mode = True
-                    st.session_state.edited_data = customer.copy() # Preenche com dados atuais
+                    st.session_state.edited_data = customer.copy()
                     st.rerun()
 
-        # --- Modal de Exclusão ---
         with col_delete:
             delete_modal = Modal("Confirmar Exclusão", key="delete_modal", padding=20, max_width=400)
             if st.button("🗑️ Excluir Cliente", width='stretch'):
@@ -248,7 +218,6 @@ if "selected_customer_id" in st.session_state and st.session_state.selected_cust
 
         st.markdown("---")
 
-        # --- Campos de Dados (Editáveis ou Estáticos) ---
         with st.container(border=True):
             st.subheader("Dados Principais")
             tipo_doc = customer.get('tipo_documento')
@@ -266,8 +235,6 @@ if "selected_customer_id" in st.session_state and st.session_state.selected_cust
 
         with st.expander("Contatos", expanded=True):
             editable_field("Nome do Contato 1", customer.get('contato1'), 'contato1')
-            
-            # A nova função editable_field agora cuida do layout do ícone
             editable_field('Telefone 1', customer.get('telefone1'), 'telefone1', is_phone=True)
             editable_field("Cargo do Contato 1", customer.get('cargo'), 'cargo')
             
@@ -308,8 +275,8 @@ if "selected_customer_id" in st.session_state and st.session_state.selected_cust
         if st.button("⬅️ Voltar para a lista"):
             del st.session_state.selected_customer_id
             st.rerun()
-else:
-    # --- Tabela de Clientes ---
+
+def show_customer_grid(search_query, state_filter, page_number, page_size, total_records, total_pages):
     df_page = database.fetch_data(search_query, state_filter, page_number, page_size)
     if not df_page.empty:
         st.info("Selecione um cliente na tabela para ver seus detalhes completos.")
@@ -329,7 +296,6 @@ else:
         )
         st.markdown(f"Mostrando **{len(df_page)}** de **{total_records}** registros. Página **{page_number}** de **{total_pages}**.")
         
-        # Lógica para pegar seleção da tabela
         if st.session_state.customer_grid['selection']['rows']:
             selected_id = int(df_page.iloc[st.session_state.customer_grid['selection']['rows'][0]]['id'])
             st.session_state.selected_customer_id = selected_id
@@ -339,3 +305,9 @@ else:
         st.info("Nenhum cliente cadastrado corresponde aos filtros aplicados.")
         if st.button("➕ Cadastrar Novo Cliente"):
             st.switch_page("pages/1_📝_Cadastro.py")
+
+# --- Main Application Logic ---
+if "selected_customer_id" in st.session_state and st.session_state.selected_customer_id:
+    show_customer_details(st.session_state.selected_customer_id)
+else:
+    show_customer_grid(search_query, state_filter, page_number, page_size, total_records, total_pages)
