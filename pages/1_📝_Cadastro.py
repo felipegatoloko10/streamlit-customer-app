@@ -36,20 +36,21 @@ def clear_form_inputs():
     """Reseta o estado do formulário para os valores padrão e limpa chaves de notificação."""
     st.session_state.form_data = DEFAULT_FORM_DATA.copy()
     
-    # Reset specific widget keys in session state directly
-    if 'cep_input_widget' in st.session_state: st.session_state.cep_input_widget = ""
-    if 'cnpj_search_input' in st.session_state: st.session_state.cnpj_search_input = ""
-    if 'nome_completo_input' in st.session_state: st.session_state.nome_completo_input = ""
-    if 'documento_input' in st.session_state: st.session_state.documento_input = ""
-    if 'email_input' in st.session_state: st.session_state.email_input = ""
-    if 'telefone1_input' in st.session_state: st.session_state.telefone1_input = ""
-    if 'cep_input_address' in st.session_state: st.session_state.cep_input_address = "" 
-    if 'endereco_input' in st.session_state: st.session_state.endereco_input = ""
-    if 'numero_input' in st.session_state: st.session_state.numero_input = ""
-    if 'complemento_input' in st.session_state: st.session_state.complemento_input = ""
-    if 'bairro_input' in st.session_state: st.session_state.bairro_input = ""
-    if 'cidade_input' in st.session_state: st.session_state.cidade_input = ""
-    if 'estado_input' in st.session_state: st.session_state.estado_input = ""
+    # Explicitly clear input widget values by setting their session_state keys
+    # This ensures a clean state for widgets not managed by st.form
+    st.session_state.cep_input_widget = ""
+    st.session_state.cnpj_search_input = ""
+    st.session_state.nome_completo_input_widget = ""
+    st.session_state.documento_input_widget = ""
+    st.session_state.email_input_widget = ""
+    st.session_state.telefone1_input_widget = ""
+    st.session_state.cep_address_input_widget = ""
+    st.session_state.endereco_input_widget = ""
+    st.session_state.numero_input_widget = ""
+    st.session_state.complemento_input_widget = ""
+    st.session_state.bairro_input_widget = ""
+    st.session_state.cidade_input_widget = ""
+    st.session_state.estado_input_widget = ""
 
     if 'cep_notification' in st.session_state:
         del st.session_state.cep_notification
@@ -66,26 +67,18 @@ WHATSAPP_ICON = load_whatsapp_icon_b64()
 if 'form_data' not in st.session_state:
     st.session_state.form_data = DEFAULT_FORM_DATA.copy()
 
-# Initialize widget keys outside the form for direct binding
+# Initialize widget keys outside the form for direct binding.
+# Streamlit will manage these keys. We only need to provide initial values here.
+# The value parameter of the widget will link to st.session_state.form_data.
 if 'cep_input_widget' not in st.session_state: st.session_state.cep_input_widget = ""
 if 'cnpj_search_input' not in st.session_state: st.session_state.cnpj_search_input = ""
-if 'nome_completo_input' not in st.session_state: st.session_state.nome_completo_input = ""
-if 'documento_input' not in st.session_state: st.session_state.documento_input = ""
-if 'email_input' not in st.session_state: st.session_state.email_input = ""
-if 'telefone1_input' not in st.session_state: st.session_state.telefone1_input = ""
-if 'cep_input_address' not in st.session_state: st.session_state.cep_input_address = "" # Used for CEP field in Address section
-if 'endereco_input' not in st.session_state: st.session_state.endereco_input = ""
-if 'numero_input' not in st.session_state: st.session_state.numero_input = ""
-if 'complemento_input' not in st.session_state: st.session_state.complemento_input = ""
-if 'bairro_input' not in st.session_state: st.session_state.bairro_input = ""
-if 'cidade_input' not in st.session_state: st.session_state.cidade_input = ""
-if 'estado_input' not in st.session_state: st.session_state.estado_input = ""
 
 
 # --- Lógica para atualizar o CEP vindo da busca de CNPJ ---
 if "cep_from_cnpj" in st.session_state:
     st.session_state.form_data['cep'] = st.session_state.pop("cep_from_cnpj")
-    st.session_state.cep_input_address = st.session_state.form_data['cep'] # Update widget directly
+    # Update widget value directly as it's outside the form
+    st.session_state.cep_address_input_widget = st.session_state.form_data['cep']
 
 
 # --- Lógica de Estado para Notificações ---
@@ -117,12 +110,12 @@ with st.container(border=True):
         st.markdown("<br/>", unsafe_allow_html=True)
         if st.button("Buscar Endereço"):
             services.fetch_address_data(st.session_state.cep_input_widget, st.session_state.form_data)
-            # Update individual widget states from form_data
-            st.session_state.cep_input_address = st.session_state.form_data['cep']
-            st.session_state.endereco_input = st.session_state.form_data['endereco']
-            st.session_state.bairro_input = st.session_state.form_data['bairro']
-            st.session_state.cidade_input = st.session_state.form_data['cidade']
-            st.session_state.estado_input = st.session_state.form_data['estado']
+            # Update individual widget states from form_data to reflect changes
+            st.session_state.cep_address_input_widget = st.session_state.form_data['cep']
+            st.session_state.endereco_input_widget = st.session_state.form_data['endereco']
+            st.session_state.bairro_input_widget = st.session_state.form_data['bairro']
+            st.session_state.cidade_input_widget = st.session_state.form_data['cidade']
+            st.session_state.estado_input_widget = st.session_state.form_data['estado']
             st.rerun() # Rerun to reflect changes immediately
 
 
@@ -142,7 +135,8 @@ with st.container(border=True):
             label_visibility="collapsed",
             index=["CPF", "CNPJ"].index(st.session_state.form_data['tipo_documento'])
         )
-        st.session_state.form_data['tipo_documento'] = st.session_state.tipo_documento_radio # Update form_data from radio widget
+        # Update form_data from radio widget's session_state value
+        st.session_state.form_data['tipo_documento'] = st.session_state.tipo_documento_radio
 
 
     # CNPJ Search input (moved above nome_completo as requested)
@@ -162,56 +156,57 @@ with st.container(border=True):
                     # Ensure the main document field gets the searched CNPJ
                     st.session_state.form_data['documento'] = st.session_state.cnpj_search_input 
                     services.fetch_cnpj_data(st.session_state.cnpj_search_input, st.session_state.form_data)
-                    # Update widgets directly from form_data
-                    st.session_state.nome_completo_input = st.session_state.form_data['nome_completo']
-                    st.session_state.email_input = st.session_state.form_data['email']
-                    st.session_state.telefone1_input = st.session_state.form_data['telefone1']
-                    st.session_state.cep_input_address = st.session_state.form_data['cep']
-                    st.session_state.endereco_input = st.session_state.form_data['endereco']
-                    st.session_state.numero_input = st.session_state.form_data['numero']
-                    st.session_state.complemento_input = st.session_state.form_data['complemento']
-                    st.session_state.bairro_input = st.session_state.form_data['bairro']
-                    st.session_state.cidade_input = st.session_state.form_data['cidade']
-                    st.session_state.estado_input = st.session_state.form_data['estado']
+                    # Update widgets directly from form_data to reflect changes
+                    st.session_state.nome_completo_input_widget = st.session_state.form_data['nome_completo']
+                    st.session_state.documento_input_widget = st.session_state.form_data['documento'] # Explicitly update documento_input_widget
+                    st.session_state.email_input_widget = st.session_state.form_data['email']
+                    st.session_state.telefone1_input_widget = st.session_state.form_data['telefone1']
+                    st.session_state.cep_address_input_widget = st.session_state.form_data['cep']
+                    st.session_state.endereco_input_widget = st.session_state.form_data['endereco']
+                    st.session_state.numero_input_widget = st.session_state.form_data['numero']
+                    st.session_state.complemento_input_widget = st.session_state.form_data['complemento']
+                    st.session_state.bairro_input_widget = st.session_state.form_data['bairro']
+                    st.session_state.cidade_input_widget = st.session_state.form_data['cidade']
+                    st.session_state.estado_input_widget = st.session_state.form_data['estado']
                     st.rerun() # Rerun to reflect changes immediately
         st.markdown("---")
     
     # Nome Completo / Razão Social
     st.text_input(
         'Nome Completo / Razão Social *', 
-        key="nome_completo_input", 
-        value=st.session_state.nome_completo_input 
+        key="nome_completo_input_widget", 
+        value=st.session_state.nome_completo_input_widget 
     )
     # Update form_data immediately on change for this field
-    st.session_state.form_data['nome_completo'] = st.session_state.nome_completo_input
+    st.session_state.form_data['nome_completo'] = st.session_state.nome_completo_input_widget
 
 
     # CPF / CNPJ Input (this field is filled by search or manual input)
     label_documento = "CPF *" if st.session_state.form_data['tipo_documento'] == "CPF" else "CNPJ *"
     st.text_input(
         label_documento, 
-        key="documento_input", 
-        value=st.session_state.documento_input 
+        key="documento_input_widget", 
+        value=st.session_state.documento_input_widget 
     )
     # Update form_data immediately on change for this field
-    st.session_state.form_data['documento'] = st.session_state.documento_input
+    st.session_state.form_data['documento'] = st.session_state.documento_input_widget
     
     # Email and Telefone1 (also directly updated by CNPJ search)
     col_email, col_tel1_main = st.columns(2)
     with col_email:
         st.text_input(
             'E-mail', 
-            key="email_input", 
-            value=st.session_state.email_input
+            key="email_input_widget", 
+            value=st.session_state.email_input_widget
         )
-        st.session_state.form_data['email'] = st.session_state.email_input
+        st.session_state.form_data['email'] = st.session_state.email_input_widget
     with col_tel1_main: 
         st.text_input(
             'Telefone 1', 
-            key="telefone1_input", 
-            value=st.session_state.telefone1_input
+            key="telefone1_input_widget", 
+            value=st.session_state.telefone1_input_widget
         )
-        st.session_state.form_data['telefone1'] = st.session_state.telefone1_input
+        st.session_state.form_data['telefone1'] = st.session_state.telefone1_input_widget
         if WHATSAPP_ICON and st.session_state.form_data['telefone1']:
             whatsapp_link_1 = validators.get_whatsapp_url(validators.unformat_whatsapp(st.session_state.form_data['telefone1']))
             st.markdown(f'<div style="text-align: right;"><a href="{whatsapp_link_1}" target="_blank"><img src="data:image/png;base64,{WHATSAPP_ICON}" width="25"></a></div>', unsafe_allow_html=True)
@@ -222,59 +217,59 @@ with st.container(border=True):
     st.subheader("Endereço")
     st.text_input(
         'CEP', 
-        key="cep_input_address", 
-        value=st.session_state.cep_input_address
+        key="cep_address_input_widget", 
+        value=st.session_state.cep_address_input_widget
     )
-    st.session_state.form_data['cep'] = st.session_state.cep_input_address
+    st.session_state.form_data['cep'] = st.session_state.cep_address_input_widget
 
     col_end, col_num = st.columns([3, 1])
     with col_end:
         st.text_input(
             'Endereço', 
-            key="endereco_input", 
-            value=st.session_state.endereco_input
+            key="endereco_input_widget", 
+            value=st.session_state.endereco_input_widget
         )
-        st.session_state.form_data['endereco'] = st.session_state.endereco_input
+        st.session_state.form_data['endereco'] = st.session_state.endereco_input_widget
     with col_num:
         st.text_input(
             'Número', 
-            key="numero_input", 
-            value=st.session_state.numero_input
+            key="numero_input_widget", 
+            value=st.session_state.numero_input_widget
         )
-        st.session_state.form_data['numero'] = st.session_state.numero_input
+        st.session_state.form_data['numero'] = st.session_state.numero_input_widget
 
     col_bairro, col_comp = st.columns(2)
     with col_bairro:
         st.text_input(
             'Bairro', 
-            key="bairro_input", 
-            value=st.session_state.bairro_input
+            key="bairro_input_widget", 
+            value=st.session_state.bairro_input_widget
         )
-        st.session_state.form_data['bairro'] = st.session_state.bairro_input
+        st.session_state.form_data['bairro'] = st.session_state.bairro_input_widget
     with col_comp:
         st.text_input(
             'Complemento', 
-            key="complemento_input", 
-            value=st.session_state.complemento_input
+            key="complemento_input_widget", 
+            value=st.session_state.complemento_input_widget
         )
-        st.session_state.form_data['complemento'] = st.session_state.complemento_input
+        st.session_state.form_data['complemento'] = st.session_state.complemento_input_widget
 
     col_cidade, col_estado = st.columns([3, 1])
     with col_cidade:
         st.text_input(
             'Cidade', 
-            key="cidade_input", 
-            value=st.session_state.cidade_input
+            key="cidade_input_widget", 
+            value=st.session_state.cidade_input_widget
         )
-        st.session_state.form_data['cidade'] = st.session_state.cidade_input
+        st.session_state.form_data['cidade'] = st.session_state.cidade_input_widget
     with col_estado:
         st.text_input(
             'UF', 
             max_chars=2, 
-            key="estado_input", 
-            value=st.session_state.estado_input
+            key="estado_input_widget", 
+            value=st.session_state.estado_input_widget
         )
-        st.session_state.form_data['estado'] = st.session_state.estado_input
+        st.session_state.form_data['estado'] = st.session_state.estado_input_widget
 
 
 st.markdown("---")
@@ -282,7 +277,7 @@ st.markdown("---")
 # --- Restante do Formulário (dentro de st.form) ---
 with st.form(key="new_customer_form", clear_on_submit=False):
     # Data de Nascimento (less likely to be pre-filled)
-    st.session_state.form_data['data_nascimento'] = st.date_input(
+    data_nascimento_form_widget = st.date_input(
         'Data de Nascimento / Fundação', 
         value=st.session_state.form_data['data_nascimento'], 
         min_value=datetime.date(1900, 1, 1), 
@@ -290,7 +285,7 @@ with st.form(key="new_customer_form", clear_on_submit=False):
     )
 
     with st.expander("Outros Contatos"):
-        st.session_state.form_data['use_client_name'] = st.checkbox(
+        use_client_name_form_widget = st.checkbox(
             "Usar nome do cliente como Contato 1", 
             key="use_client_name_form_widget", 
             value=st.session_state.form_data['use_client_name']
@@ -305,26 +300,26 @@ with st.form(key="new_customer_form", clear_on_submit=False):
             contato1_value = st.session_state.form_data['contato1']
             contato1_disabled = False
 
-        st.session_state.form_data['contato1'] = st.text_input(
+        contato1_form_widget = st.text_input(
             "Nome do Contato 1", 
             value=contato1_value, 
             key="contato1_form_widget", 
             disabled=contato1_disabled
         )
 
-        st.session_state.form_data['cargo'] = st.text_input(
+        cargo_form_widget = st.text_input(
             "Cargo do Contato 1", 
             key="cargo_form_widget", 
             value=st.session_state.form_data['cargo']
         )
         st.markdown("---")
         
-        st.session_state.form_data['contato2'] = st.text_input(
+        contato2_form_widget = st.text_input(
             "Nome do Contato 2", 
             key="contato2_form_widget", 
             value=st.session_state.form_data['contato2']
         )
-        st.session_state.form_data['telefone2'] = st.text_input(
+        telefone2_form_widget = st.text_input(
             'Telefone 2', 
             key="telefone2_form_widget", 
             value=st.session_state.form_data['telefone2']
@@ -335,7 +330,7 @@ with st.form(key="new_customer_form", clear_on_submit=False):
 
 
     with st.expander("Observações"):
-        st.session_state.form_data['observacao'] = st.text_area(
+        observacao_form_widget = st.text_area(
             "Observações", 
             value=st.session_state.form_data['observacao'], 
             height=150, 
@@ -350,13 +345,13 @@ with st.form(key="new_customer_form", clear_on_submit=False):
 # --- Handle Form Submission ---
 if submit_button:
     # Update form_data with values from widgets inside the st.form
-    st.session_state.form_data['data_nascimento'] = st.session_state.data_nascimento_form_widget
-    st.session_state.form_data['use_client_name'] = st.session_state.use_client_name_form_widget
-    st.session_state.form_data['contato1'] = st.session_state.contato1_form_widget
-    st.session_state.form_data['cargo'] = st.session_state.cargo_form_widget
-    st.session_state.form_data['contato2'] = st.session_state.contato2_form_widget
-    st.session_state.form_data['telefone2'] = st.session_state.telefone2_form_widget
-    st.session_state.form_data['observacao'] = st.session_state.observacao_form_widget
+    st.session_state.form_data['data_nascimento'] = data_nascimento_form_widget
+    st.session_state.form_data['use_client_name'] = use_client_name_form_widget
+    st.session_state.form_data['contato1'] = contato1_form_widget
+    st.session_state.form_data['cargo'] = cargo_form_widget
+    st.session_state.form_data['contato2'] = contato2_form_widget
+    st.session_state.form_data['telefone2'] = telefone2_form_widget
+    st.session_state.form_data['observacao'] = observacao_form_widget
 
 
     form_data = st.session_state.form_data
@@ -404,7 +399,7 @@ if submit_button:
 
 if st.session_state.form_data['use_client_name'] and st.session_state.form_data['contato1'] != st.session_state.form_data['nome_completo']:
     st.session_state.form_data['contato1'] = st.session_state.form_data['nome_completo']
-    st.rerun() # Force rerun to update the input field for contato1
+    # st.rerun() # Removed to avoid infinite loop
 elif not st.session_state.form_data['use_client_name'] and st.session_state.form_data['contato1'] == st.session_state.form_data['nome_completo']:
     st.session_state.form_data['contato1'] = "" # Clear if unchecked and it was previously set by this logic
-    st.rerun() # Force rerun to clear the input field for contato1
+    # st.rerun() # Removed to avoid infinite loop
