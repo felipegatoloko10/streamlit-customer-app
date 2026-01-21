@@ -59,6 +59,9 @@ def fetch_cnpj_data(cnpj, form_data):
         form_data['cidade'] = data.get("municipio", "")
         form_data['estado'] = data.get("uf", "")
 
+        # Add this line to update the 'documento' field with the cleaned CNPJ
+        form_data['documento'] = cnpj_cleaned
+
         st.toast("Dados do CNPJ preenchidos com sucesso!", icon="✅")
 
     except requests.exceptions.RequestException as e:

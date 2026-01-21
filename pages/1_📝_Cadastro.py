@@ -37,10 +37,9 @@ def clear_form_inputs():
     st.session_state.form_data = DEFAULT_FORM_DATA.copy()
     
     # Reset specific widget keys in session state (those used directly by widgets for value)
-    # These must be reset for widgets that are not directly mapped to form_data keys
     if 'cnpj_search_input' in st.session_state: st.session_state.cnpj_search_input = ""
     if 'cep_input_widget' in st.session_state: st.session_state.cep_input_widget = ""
-    if 'tipo_documento_radio' in st.session_state: st.session_state.tipo_documento_radio = "CPF" # Reset radio button
+    if 'tipo_documento' in st.session_state: st.session_state.tipo_documento = "CPF" # Reset radio button
     
     if 'cep_notification' in st.session_state:
         del st.session_state.cep_notification
@@ -61,7 +60,8 @@ if 'form_data' not in st.session_state:
 # These are the direct binding keys.
 if 'cep_input_widget' not in st.session_state: st.session_state.cep_input_widget = ""
 if 'cnpj_search_input' not in st.session_state: st.session_state.cnpj_search_input = ""
-if 'tipo_documento_radio' not in st.session_state: st.session_state.tipo_documento_radio = "CPF" # Initialize radio
+# If 'tipo_documento' is used as key for st.radio, initialize it here
+if 'tipo_documento' not in st.session_state: st.session_state.tipo_documento = "CPF"
 
 
 # --- Lógica para atualizar o CEP vindo da busca de CNPJ ---
@@ -113,12 +113,12 @@ with st.container(border=True):
             "Tipo de Documento", 
             ["CPF", "CNPJ"], 
             horizontal=True, 
-            key="tipo_documento_radio", # Streamlit will manage this key
+            key="tipo_documento", # This key maps directly to form_data['tipo_documento']
             label_visibility="collapsed",
-            index=["CPF", "CNPJ"].index(st.session_state.tipo_documento_radio) # Use the widget's own state
+            index=["CPF", "CNPJ"].index(st.session_state.form_data['tipo_documento'])
         )
-        # Manually update form_data from the radio widget's session_state key
-        st.session_state.form_data['tipo_documento'] = st.session_state.tipo_documento_radio
+        # Update form_data from radio widget's session_state value
+        st.session_state.form_data['tipo_documento'] = st.session_state.tipo_documento
 
 
     # CNPJ Search input (moved above nome_completo as requested)
@@ -147,7 +147,7 @@ with st.container(border=True):
         key="nome_completo", # This key maps directly to form_data['nome_completo']
         value=st.session_state.form_data['nome_completo'] 
     )
-    # Streamlit automatically updates st.session_state.nome_completo when widget changes.
+    # Streamlit automatically updates st.session_state.nome_completo.
     # We still need to ensure form_data is synced.
     st.session_state.form_data['nome_completo'] = st.session_state.nome_completo
 
@@ -181,8 +181,76 @@ with st.container(border=True):
             whatsapp_link_1 = validators.get_whatsapp_url(validators.unformat_whatsapp(st.session_state.form_data['telefone1']))
             st.markdown(f'<div style="text-align: right;"><a href="{whatsapp_link_1}" target="_blank"><img src="data:image/png;base64,{WHATSAPP_ICON}" width="25"></a></div>', unsafe_allow_html=True)
 
-# --- Endereço ---
+
 st.markdown("---")
+
+# --- Seção de Contatos (nova ordem) ---
+with st.container(border=True):
+    st.subheader("Contatos")
+    
+    st.date_input(
+        'Data de Nascimento / Fundação', 
+        value=st.session_state.form_data['data_nascimento'], 
+        min_value=datetime.date(1900, 1, 1), 
+        key="data_nascimento" 
+    )
+    st.session_state.form_data['data_nascimento'] = st.session_state.data_nascimento
+
+    st.checkbox(
+        "Usar nome do cliente como Contato 1", 
+        key="use_client_name", 
+        value=st.session_state.form_data['use_client_name']
+    )
+    st.session_state.form_data['use_client_name'] = st.session_state.use_client_name
+    
+    # Logic for contato1 (now tied to form_data)
+    if st.session_state.form_data['use_client_name']:
+        st.session_state.form_data['contato1'] = st.session_state.form_data['nome_completo']
+        contato1_value = st.session_state.form_data['contato1']
+        contato1_disabled = True
+    else:
+        contato1_value = st.session_state.form_data['contato1']
+        contato1_disabled = False
+
+    st.text_input(
+        "Nome do Contato 1", 
+        value=contato1_value, 
+        key="contato1", 
+        disabled=contato1_disabled
+    )
+    st.session_state.form_data['contato1'] = st.session_state.contato1
+
+
+    st.text_input(
+        "Cargo do Contato 1", 
+        key="cargo", 
+        value=st.session_state.form_data['cargo']
+    )
+    st.session_state.form_data['cargo'] = st.session_state.cargo
+
+    st.markdown("---")
+    
+    st.text_input(
+        "Nome do Contato 2", 
+        key="contato2", 
+        value=st.session_state.form_data['contato2']
+    )
+    st.session_state.form_data['contato2'] = st.session_state.contato2
+
+    st.text_input(
+        'Telefone 2', 
+        key="telefone2", 
+        value=st.session_state.form_data['telefone2']
+    )
+    st.session_state.form_data['telefone2'] = st.session_state.telefone2
+    if WHATSAPP_ICON and st.session_state.form_data['telefone2']:
+        whatsapp_link_2 = validators.get_whatsapp_url(validators.unformat_whatsapp(st.session_state.form_data['telefone2']))
+        st.markdown(f'<div style="text-align: right;"><a href="{whatsapp_link_2}" target="_blank"><img src="data:image/png;base64,{WHATSAPP_ICON}" width="25"></a></div>', unsafe_allow_html=True)
+
+
+st.markdown("---")
+
+# --- Endereço ---
 with st.container(border=True):
     st.subheader("Endereço")
     st.text_input(
@@ -244,82 +312,22 @@ with st.container(border=True):
 
 st.markdown("---")
 
-# --- Restante do Formulário (dentro de st.form) ---
-with st.form(key="new_customer_form", clear_on_submit=False):
-    # Data de Nascimento (less likely to be pre-filled)
-    st.date_input(
-        'Data de Nascimento / Fundação', 
-        value=st.session_state.form_data['data_nascimento'], 
-        min_value=datetime.date(1900, 1, 1), 
-        key="data_nascimento" # Maps directly to form_data['data_nascimento']
+# --- Observações ---
+with st.container(border=True):
+    st.subheader("Observações")
+    st.text_area(
+        "Observações", 
+        value=st.session_state.form_data['observacao'], 
+        height=150, 
+        max_chars=1000, 
+        key="observacao" 
     )
-    st.session_state.form_data['data_nascimento'] = st.session_state.data_nascimento # Update form_data
+    st.session_state.form_data['observacao'] = st.session_state.observacao
 
-    with st.expander("Outros Contatos"):
-        st.checkbox(
-            "Usar nome do cliente como Contato 1", 
-            key="use_client_name", # Maps directly to form_data['use_client_name']
-            value=st.session_state.form_data['use_client_name']
-        )
-        st.session_state.form_data['use_client_name'] = st.session_state.use_client_name
-        
-        # Logic for contato1 (now tied to form_data)
-        if st.session_state.form_data['use_client_name']:
-            st.session_state.form_data['contato1'] = st.session_state.form_data['nome_completo']
-            contato1_value = st.session_state.form_data['contato1']
-            contato1_disabled = True
-        else:
-            contato1_value = st.session_state.form_data['contato1']
-            contato1_disabled = False
+st.markdown("---")
 
-        st.text_input(
-            "Nome do Contato 1", 
-            value=contato1_value, 
-            key="contato1", # Maps directly to form_data['contato1']
-            disabled=contato1_disabled
-        )
-        st.session_state.form_data['contato1'] = st.session_state.contato1
-
-
-        st.text_input(
-            "Cargo do Contato 1", 
-            key="cargo", # Maps directly to form_data['cargo']
-            value=st.session_state.form_data['cargo']
-        )
-        st.session_state.form_data['cargo'] = st.session_state.cargo
-
-        st.markdown("---")
-        
-        st.text_input(
-            "Nome do Contato 2", 
-            key="contato2", # Maps directly to form_data['contato2']
-            value=st.session_state.form_data['contato2']
-        )
-        st.session_state.form_data['contato2'] = st.session_state.contato2
-
-        st.text_input(
-            'Telefone 2', 
-            key="telefone2", # Maps directly to form_data['telefone2']
-            value=st.session_state.form_data['telefone2']
-        )
-        st.session_state.form_data['telefone2'] = st.session_state.telefone2
-        if WHATSAPP_ICON and st.session_state.form_data['telefone2']:
-            whatsapp_link_2 = validators.get_whatsapp_url(validators.unformat_whatsapp(st.session_state.form_data['telefone2']))
-            st.markdown(f'<div style="text-align: right;"><a href="{whatsapp_link_2}" target="_blank"><img src="data:image/png;base64,{WHATSAPP_ICON}" width="25"></a></div>', unsafe_allow_html=True)
-
-
-    with st.expander("Observações"):
-        st.text_area(
-            "Observações", 
-            value=st.session_state.form_data['observacao'], 
-            height=150, 
-            max_chars=1000, 
-            key="observacao" # Maps directly to form_data['observacao']
-        )
-        st.session_state.form_data['observacao'] = st.session_state.observacao
-
-    st.markdown("---")
-    submit_button = st.form_submit_button('Salvar Cliente', type="primary", use_container_width=True)
+# --- Submit Button ---
+submit_button = st.button('Salvar Cliente', type="primary", use_container_width=True)
 
 
 # --- Handle Form Submission ---
@@ -364,3 +372,15 @@ if submit_button:
         st.error(f"Erro ao salvar: {e}")
     except Exception as e:
         st.error(f"Ocorreu um erro inesperado: {e}")
+
+# --- Handle checkbox logic for 'use_client_name' (outside the form) ---
+# This logic is applied on every rerun, ensuring form_data is consistent
+# Note: This logic now needs to update st.session_state.form_data directly
+# and potentially trigger a rerun if the change isn't picked up automatically by widgets outside form.
+
+if st.session_state.form_data['use_client_name'] and st.session_state.form_data['contato1'] != st.session_state.form_data['nome_completo']:
+    st.session_state.form_data['contato1'] = st.session_state.form_data['nome_completo']
+    st.rerun() # Force rerun to update the input field for contato1
+elif not st.session_state.form_data['use_client_name'] and st.session_state.form_data['contato1'] == st.session_state.form_data['nome_completo']:
+    st.session_state.form_data['contato1'] = "" # Clear if unchecked and it was previously set by this logic
+    st.rerun() # Force rerun to clear the input field for contato1
