@@ -32,15 +32,36 @@ def load_whatsapp_icon_b64():
 
 import services
 
+# Helper to sync widget state to form_data
+def sync_form_data(key):
+    """Callback para sincronizar o valor do widget com st.session_state.form_data."""
+    if key in st.session_state:
+        st.session_state.form_data[key] = st.session_state[key]
+    # Special handling for 'use_client_name'
+    if key == 'use_client_name':
+        if st.session_state.form_data['use_client_name']:
+            st.session_state.form_data['contato1'] = st.session_state.form_data['nome_completo']
+        else:
+            st.session_state.form_data['contato1'] = ""
+        # Rerun is needed to reflect changes in disabled state or value of 'contato1'
+        # Only rerun if it's not already in a rerun cycle (e.g. from an API call button)
+        if not st.runtime.state.session_state._is_in_rerun: # Use _is_in_rerun to prevent infinite loop
+             st.rerun()
+
 def clear_form_inputs():
     """Reseta o estado do formulário para os valores padrão e limpa chaves de notificação."""
     st.session_state.form_data = DEFAULT_FORM_DATA.copy()
     
-    # Reset specific widget keys in session state (those used directly by widgets for value)
-    if 'cnpj_search_input' in st.session_state: st.session_state.cnpj_search_input = ""
+    # Reset specific widget keys in session state for elements not directly mapped to form_data
+    if 'cnpj_search_input_widget' in st.session_state: st.session_state.cnpj_search_input_widget = ""
     if 'cep_input_widget' in st.session_state: st.session_state.cep_input_widget = ""
     if 'tipo_documento' in st.session_state: st.session_state.tipo_documento = "CPF" # Reset radio button
     
+    # Ensure form_data fields are correctly set in session_state for widgets to pick up
+    for key, value in DEFAULT_FORM_DATA.items():
+        if key in st.session_state: # If a widget has this key
+            st.session_state[key] = value
+
     if 'cep_notification' in st.session_state:
         del st.session_state.cep_notification
     if 'form_error' in st.session_state:
@@ -56,10 +77,11 @@ WHATSAPP_ICON = load_whatsapp_icon_b64()
 if 'form_data' not in st.session_state:
     st.session_state.form_data = DEFAULT_FORM_DATA.copy()
 
+
 # Initialize widget keys in session_state that are used for 'value' in widgets
 # These are the direct binding keys.
 if 'cep_input_widget' not in st.session_state: st.session_state.cep_input_widget = ""
-if 'cnpj_search_input' not in st.session_state: st.session_state.cnpj_search_input = ""
+if 'cnpj_search_input_widget' not in st.session_state: st.session_state.cnpj_search_input_widget = ""
 # If 'tipo_documento' is used as key for st.radio, initialize it here
 if 'tipo_documento' not in st.session_state: st.session_state.tipo_documento = "CPF"
 
@@ -88,7 +110,7 @@ if st.session_state.get("form_error"):
 # --- Interface ---
 st.title('📝 Cadastro de Clientes')
 
-# --- Seção de Busca de CEP (fora do formulário) ---
+# --- Seção de Busca de CEP ---
 with st.container(border=True):
     st.subheader("Busca de Endereço por CEP")
     col1, col2 = st.columns([1, 2])
@@ -103,7 +125,7 @@ with st.container(border=True):
 
 st.markdown("---")
 
-# --- Seção de Dados Principais e CNPJ Search (fora do formulário) ---
+# --- Seção de Dados Principais e CNPJ Search ---
 with st.container(border=True):
     st.subheader("Dados Principais")
     
@@ -113,70 +135,60 @@ with st.container(border=True):
             "Tipo de Documento", 
             ["CPF", "CNPJ"], 
             horizontal=True, 
-            key="tipo_documento", # This key maps directly to form_data['tipo_documento']
+            key="tipo_documento", # Streamlit will manage this key
             label_visibility="collapsed",
-            index=["CPF", "CNPJ"].index(st.session_state.form_data['tipo_documento'])
+            index=["CPF", "CNPJ"].index(st.session_state.form_data['tipo_documento']),
+            on_change=lambda: sync_form_data("tipo_documento")
         )
-        # Update form_data from radio widget's session_state value
-        st.session_state.form_data['tipo_documento'] = st.session_state.tipo_documento
 
-
-    # CNPJ Search input (moved above nome_completo as requested)
+    # CNPJ Search input
     if st.session_state.form_data['tipo_documento'] == "CNPJ":
         with st.container():
             col_cnpj_input, col_cnpj_btn = st.columns([0.7, 0.3])
             with col_cnpj_input:
                 st.text_input(
                     "CNPJ para busca", 
-                    key="cnpj_search_input", # Streamlit will manage this key
+                    key="cnpj_search_input_widget", 
                     label_visibility="collapsed", 
                     placeholder="Digite o CNPJ para buscar dados", 
-                    value=st.session_state.cnpj_search_input
+                    value=st.session_state.cnpj_search_input_widget
                 )
             with col_cnpj_btn:
                 if st.button("🔎 Buscar CNPJ", use_container_width=True):
-                    # Ensure the main document field gets the searched CNPJ
-                    st.session_state.form_data['documento'] = st.session_state.cnpj_search_input 
-                    services.fetch_cnpj_data(st.session_state.cnpj_search_input, st.session_state.form_data)
+                    services.fetch_cnpj_data(st.session_state.cnpj_search_input_widget, st.session_state.form_data)
                     st.rerun() # Rerun to reflect changes immediately
         st.markdown("---")
     
-    # Nome Completo / Razão Social
     st.text_input(
         'Nome Completo / Razão Social *', 
-        key="nome_completo", # This key maps directly to form_data['nome_completo']
-        value=st.session_state.form_data['nome_completo'] 
+        key="nome_completo", 
+        value=st.session_state.form_data['nome_completo'],
+        on_change=lambda: sync_form_data("nome_completo")
     )
-    # Streamlit automatically updates st.session_state.nome_completo.
-    # We still need to ensure form_data is synced.
-    st.session_state.form_data['nome_completo'] = st.session_state.nome_completo
 
-
-    # CPF / CNPJ Input (this field is filled by search or manual input)
     label_documento = "CPF *" if st.session_state.form_data['tipo_documento'] == "CPF" else "CNPJ *"
     st.text_input(
         label_documento, 
-        key="documento", # This key maps directly to form_data['documento']
-        value=st.session_state.form_data['documento'] 
+        key="documento", 
+        value=st.session_state.form_data['documento'],
+        on_change=lambda: sync_form_data("documento")
     )
-    st.session_state.form_data['documento'] = st.session_state.documento
     
-    # Email and Telefone1 (also directly updated by CNPJ search)
     col_email, col_tel1_main = st.columns(2)
     with col_email:
         st.text_input(
             'E-mail', 
-            key="email", # Maps directly to form_data['email']
-            value=st.session_state.form_data['email']
+            key="email", 
+            value=st.session_state.form_data['email'],
+            on_change=lambda: sync_form_data("email")
         )
-        st.session_state.form_data['email'] = st.session_state.email
     with col_tel1_main: 
         st.text_input(
             'Telefone 1', 
-            key="telefone1", # Maps directly to form_data['telefone1']
-            value=st.session_state.form_data['telefone1']
+            key="telefone1", 
+            value=st.session_state.form_data['telefone1'],
+            on_change=lambda: sync_form_data("telefone1")
         )
-        st.session_state.form_data['telefone1'] = st.session_state.telefone1
         if WHATSAPP_ICON and st.session_state.form_data['telefone1']:
             whatsapp_link_1 = validators.get_whatsapp_url(validators.unformat_whatsapp(st.session_state.form_data['telefone1']))
             st.markdown(f'<div style="text-align: right;"><a href="{whatsapp_link_1}" target="_blank"><img src="data:image/png;base64,{WHATSAPP_ICON}" width="25"></a></div>', unsafe_allow_html=True)
@@ -184,7 +196,7 @@ with st.container(border=True):
 
 st.markdown("---")
 
-# --- Seção de Contatos (nova ordem) ---
+# --- Seção de Contatos ---
 with st.container(border=True):
     st.subheader("Contatos")
     
@@ -192,57 +204,50 @@ with st.container(border=True):
         'Data de Nascimento / Fundação', 
         value=st.session_state.form_data['data_nascimento'], 
         min_value=datetime.date(1900, 1, 1), 
-        key="data_nascimento" 
+        key="data_nascimento",
+        on_change=lambda: sync_form_data("data_nascimento")
     )
-    st.session_state.form_data['data_nascimento'] = st.session_state.data_nascimento
 
     st.checkbox(
         "Usar nome do cliente como Contato 1", 
         key="use_client_name", 
-        value=st.session_state.form_data['use_client_name']
+        value=st.session_state.form_data['use_client_name'],
+        on_change=lambda: sync_form_data("use_client_name") # on_change will also trigger sync
     )
-    st.session_state.form_data['use_client_name'] = st.session_state.use_client_name
     
-    # Logic for contato1 (now tied to form_data)
-    if st.session_state.form_data['use_client_name']:
-        st.session_state.form_data['contato1'] = st.session_state.form_data['nome_completo']
-        contato1_value = st.session_state.form_data['contato1']
-        contato1_disabled = True
-    else:
-        contato1_value = st.session_state.form_data['contato1']
-        contato1_disabled = False
+    # Logic for contato1
+    contato1_value = st.session_state.form_data['contato1']
+    contato1_disabled = st.session_state.form_data['use_client_name']
 
     st.text_input(
         "Nome do Contato 1", 
         value=contato1_value, 
         key="contato1", 
-        disabled=contato1_disabled
+        disabled=contato1_disabled,
+        on_change=lambda: sync_form_data("contato1")
     )
-    st.session_state.form_data['contato1'] = st.session_state.contato1
 
 
     st.text_input(
         "Cargo do Contato 1", 
         key="cargo", 
-        value=st.session_state.form_data['cargo']
+        value=st.session_state.form_data['cargo'],
+        on_change=lambda: sync_form_data("cargo")
     )
-    st.session_state.form_data['cargo'] = st.session_state.cargo
-
     st.markdown("---")
     
     st.text_input(
         "Nome do Contato 2", 
         key="contato2", 
-        value=st.session_state.form_data['contato2']
+        value=st.session_state.form_data['contato2'],
+        on_change=lambda: sync_form_data("contato2")
     )
-    st.session_state.form_data['contato2'] = st.session_state.contato2
-
     st.text_input(
         'Telefone 2', 
         key="telefone2", 
-        value=st.session_state.form_data['telefone2']
+        value=st.session_state.form_data['telefone2'],
+        on_change=lambda: sync_form_data("telefone2")
     )
-    st.session_state.form_data['telefone2'] = st.session_state.telefone2
     if WHATSAPP_ICON and st.session_state.form_data['telefone2']:
         whatsapp_link_2 = validators.get_whatsapp_url(validators.unformat_whatsapp(st.session_state.form_data['telefone2']))
         st.markdown(f'<div style="text-align: right;"><a href="{whatsapp_link_2}" target="_blank"><img src="data:image/png;base64,{WHATSAPP_ICON}" width="25"></a></div>', unsafe_allow_html=True)
@@ -255,59 +260,59 @@ with st.container(border=True):
     st.subheader("Endereço")
     st.text_input(
         'CEP', 
-        key="cep", # Maps directly to form_data['cep']
-        value=st.session_state.form_data['cep']
+        key="cep", 
+        value=st.session_state.form_data['cep'],
+        on_change=lambda: sync_form_data("cep")
     )
-    st.session_state.form_data['cep'] = st.session_state.cep
 
     col_end, col_num = st.columns([3, 1])
     with col_end:
         st.text_input(
             'Endereço', 
-            key="endereco", # Maps directly to form_data['endereco']
-            value=st.session_state.form_data['endereco']
+            key="endereco", 
+            value=st.session_state.form_data['endereco'],
+            on_change=lambda: sync_form_data("endereco")
         )
-        st.session_state.form_data['endereco'] = st.session_state.endereco
     with col_num:
         st.text_input(
             'Número', 
-            key="numero", # Maps directly to form_data['numero']
-            value=st.session_state.form_data['numero']
+            key="numero", 
+            value=st.session_state.form_data['numero'],
+            on_change=lambda: sync_form_data("numero")
         )
-        st.session_state.form_data['numero'] = st.session_state.numero
 
     col_bairro, col_comp = st.columns(2)
     with col_bairro:
         st.text_input(
             'Bairro', 
-            key="bairro", # Maps directly to form_data['bairro']
-            value=st.session_state.form_data['bairro']
+            key="bairro", 
+            value=st.session_state.form_data['bairro'],
+            on_change=lambda: sync_form_data("bairro")
         )
-        st.session_state.form_data['bairro'] = st.session_state.bairro
     with col_comp:
         st.text_input(
             'Complemento', 
-            key="complemento", # Maps directly to form_data['complemento']
-            value=st.session_state.form_data['complemento']
+            key="complemento", 
+            value=st.session_state.form_data['complemento'],
+            on_change=lambda: sync_form_data("complemento")
         )
-        st.session_state.form_data['complemento'] = st.session_state.complemento
 
     col_cidade, col_estado = st.columns([3, 1])
     with col_cidade:
         st.text_input(
             'Cidade', 
-            key="cidade", # Maps directly to form_data['cidade']
-            value=st.session_state.form_data['cidade']
+            key="cidade", 
+            value=st.session_state.form_data['cidade'],
+            on_change=lambda: sync_form_data("cidade")
         )
-        st.session_state.form_data['cidade'] = st.session_state.cidade
     with col_estado:
         st.text_input(
             'UF', 
             max_chars=2, 
-            key="estado", # Maps directly to form_data['estado']
-            value=st.session_state.form_data['estado']
+            key="estado", 
+            value=st.session_state.form_data['estado'],
+            on_change=lambda: sync_form_data("estado")
         )
-        st.session_state.form_data['estado'] = st.session_state.estado
 
 
 st.markdown("---")
@@ -320,9 +325,9 @@ with st.container(border=True):
         value=st.session_state.form_data['observacao'], 
         height=150, 
         max_chars=1000, 
-        key="observacao" 
+        key="observacao",
+        on_change=lambda: sync_form_data("observacao") 
     )
-    st.session_state.form_data['observacao'] = st.session_state.observacao
 
 st.markdown("---")
 
@@ -332,9 +337,6 @@ submit_button = st.button('Salvar Cliente', type="primary", use_container_width=
 
 # --- Handle Form Submission ---
 if submit_button:
-    # All form_data keys should now be updated directly by Streamlit widgets
-    # as their keys match the form_data keys.
-
     form_data = st.session_state.form_data
     tipo_selecionado = form_data['tipo_documento']
 
@@ -372,15 +374,3 @@ if submit_button:
         st.error(f"Erro ao salvar: {e}")
     except Exception as e:
         st.error(f"Ocorreu um erro inesperado: {e}")
-
-# --- Handle checkbox logic for 'use_client_name' (outside the form) ---
-# This logic is applied on every rerun, ensuring form_data is consistent
-# Note: This logic now needs to update st.session_state.form_data directly
-# and potentially trigger a rerun if the change isn't picked up automatically by widgets outside form.
-
-if st.session_state.form_data['use_client_name'] and st.session_state.form_data['contato1'] != st.session_state.form_data['nome_completo']:
-    st.session_state.form_data['contato1'] = st.session_state.form_data['nome_completo']
-    st.rerun() # Force rerun to update the input field for contato1
-elif not st.session_state.form_data['use_client_name'] and st.session_state.form_data['contato1'] == st.session_state.form_data['nome_completo']:
-    st.session_state.form_data['contato1'] = "" # Clear if unchecked and it was previously set by this logic
-    st.rerun() # Force rerun to clear the input field for contato1
