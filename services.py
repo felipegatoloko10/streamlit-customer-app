@@ -54,7 +54,7 @@ def fetch_cnpj_data(cnpj, form_data):
         form_data['cidade'] = data.get("municipio", "")
         form_data['estado'] = data.get("uf", "")
 
-        st.success("Dados do CNPJ preenchidos com sucesso!")
+        st.toast("Dados do CNPJ preenchidos com sucesso!", icon="✅")
 
     except requests.exceptions.RequestException as e:
         st.session_state.form_error = f"Erro de rede ao buscar o CNPJ: {e}"
