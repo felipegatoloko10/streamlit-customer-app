@@ -35,8 +35,13 @@ def fetch_cnpj_data(cnpj, form_data):
             response = requests.get(f"https://brasilapi.com.br/api/cnpj/v1/{cnpj_cleaned}", timeout=10)
             # A BrasilAPI retorna 404 para CNPJ não encontrado, o que causa um HTTPError
             if response.status_code == 404:
-                st.session_state.form_error = f"CNPJ não encontrado ou inválido: {cnpj}"
+                st.session_state.form_error = f"CNPJ não encontrado ou inválido: {cnpj_cleaned}"
                 return
+            elif response.status_code == 400: # Explicitly handle Bad Request
+                error_detail = response.json().get('message', 'Erro desconhecido.')
+                st.session_state.form_error = f"CNPJ inválido ou formatado incorretamente: {error_detail}"
+                return
+
             response.raise_for_status()
             data = response.json()
 
