@@ -1,100 +1,85 @@
-# Customer Management CRM & 3D Printing Price Calculator
+# 🚀 Customer-App: CRM Inteligente com Precificação 3D
 
-Este é um aplicativo web multifuncional construído com Streamlit, projetado para atuar como um pequeno CRM para gerenciamento de clientes e uma ferramenta especializada para cálculo de preços de impressão 3D.
+**Um sistema completo de gestão de clientes e precificação, construído com a agilidade do Streamlit e uma arquitetura robusta.**
 
-## ✨ Features
+---
 
-### Gerenciamento de Clientes (CRM)
-- **Dashboard Interativo:** Visualize métricas chave como total de clientes, novos registros por período, e distribuição geográfica (estado/cidade).
-- **Cadastro Completo:** Formulário de cadastro dinâmico para pessoas físicas (CPF) e jurídicas (CNPJ).
-  - **Busca Automática de CNPJ:** Preenchimento automático de razão social, e-mail e endereço ao inserir um CNPJ válido (via BrasilAPI).
-  - **Busca Automática de CEP:** Preenchimento automático do endereço ao inserir um CEP (via ViaCEP).
-- **Banco de Dados de Clientes:**
-  - Interface para visualizar, buscar e filtrar todos os clientes cadastrados.
-  - Edição de informações diretamente na página.
-  - Exclusão de clientes com diálogo de confirmação.
-  - Links diretos para WhatsApp e Google Maps.
-- **Backup e Restauração:** Funcionalidade para baixar uma cópia de segurança do banco de dados (SQLite) e restaurá-lo a partir de um arquivo.
+[![Python](https://img.shields.io/badge/Python-3.10%2B-blue?style=for-the-badge&logo=python)](https://www.python.org/)
+[![Streamlit](https://img.shields.io/badge/Streamlit-1.30%2B-red?style=for-the-badge&logo=streamlit)](https://streamlit.io/)
+[![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 
-### Ferramentas de Negócio
-- **Calculadora de Preços para Impressão 3D:**
-  - Modelo de custos detalhado que inclui mão de obra, material, custos de impressão e fatores de negócio (lucro, falha, urgência).
-  - Sistema de **Predefinições (Presets)** para salvar e carregar configurações de cálculo comuns.
-- **Emissão de NFS-e (Placeholder):** Página com link para o portal nacional de emissão de Nota Fiscal de Serviço eletrônica.
+> Este projeto vai além de um simples app. É uma demonstração de como o Streamlit pode ser usado para criar ferramentas de negócio internas (Internal Business Tools) poderosas, com uma clara separação entre a interface, as regras de negócio e o acesso a dados.
 
-## 🚀 Getting Started
+<!-- 
+💡 **Dica:** Adicione um GIF ou uma screenshot do seu app aqui!
+<p align="center">
+  <img src="URL_DA_SUA_IMAGEM.gif" alt="Demonstração do App">
+</p>
+-->
 
-Siga as instruções abaixo para configurar e rodar o projeto em seu ambiente local.
+## 🏛️ Filosofia e Arquitetura
 
-### Pré-requisitos
+O código é organizado em **camadas independentes**, facilitando a manutenção e a adição de novas funcionalidades:
 
-- Python 3.8+
-- pip (gerenciador de pacotes do Python)
+- **`pages/` (Interface):** Cada página é um componente isolado, responsável apenas por exibir informações e capturar a entrada do usuário.
+- **`services.py` (Serviços):** Centraliza a comunicação com o mundo exterior (APIs como BrasilAPI, ViaCEP e envio de e-mails).
+- **`validators.py` (Validação):** O "guardião" dos dados. Garante que nenhuma informação inválida (CPF, CNPJ, e-mail) chegue à camada de dados.
+- **`database.py` (Dados):** A única fonte da verdade. Abstrai toda a complexidade de interagir com o banco de dados SQLite.
 
-### Instalação
+## ✨ O que ele faz? Funcionalidades Principais
 
-1. **Clone o repositório:**
-   ```bash
-   git clone https://github.com/felipegatoloko10/streamlit-customer-app.git
-   cd streamlit-customer-app
-   ```
+### 📇 Gestão de Clientes (CRM)
 
-2. **Crie e ative um ambiente virtual (recomendado):**
-   ```bash
-   # Para Windows
-   python -m venv .venv
-   .venv\Scripts\activate
+- **Dashboard Analítico:** Uma visão geral do seu negócio com métricas de crescimento e distribuição de clientes.
+- **Cadastro Inteligente:**
+  - **Automático:** Busca dados de **CNPJ** na BrasilAPI para preencher o formulário.
+  - **Endereço Fácil:** Preenche o endereço completo a partir de um **CEP**.
+- **Banco de Dados Interativo:**
+  - Visualize, filtre e edite clientes em tempo real.
+  - **Acesso Rápido:** Links diretos para iniciar conversas no **WhatsApp** ou ver o endereço no **Google Maps**.
+- **Segurança de Dados:**
+  - **Backup com 1 Clique:** Baixe uma cópia de segurança do seu banco de dados a qualquer momento.
+  - **Restauração Segura:** Restaure um backup antigo com a tranquilidade de que um backup de segurança do estado atual será criado automaticamente.
 
-   # Para macOS/Linux
-   python3 -m venv .venv
-   source .venv/bin/activate
-   ```
+### 🛠️ Ferramentas de Negócio
 
-3. **Instale as dependências:**
-   ```bash
-   pip install -r requirements.txt
-   ```
+- **Calculadora de Preços 3D:**
+  - **Precificação Detalhada:** Calcule o preço de venda de impressões 3D considerando dezenas de variáveis.
+  - **Presets Inteligentes:** Salve e carregue configurações de cálculo para diferentes tipos de projeto (ex: "Resina de Alta Definição", "PLA Padrão").
+- **Portal de NFS-e:** Um atalho útil para o portal nacional de emissão de notas fiscais.
 
-### Executando o Aplicativo
+## 💻 Tech Stack
 
-Para iniciar o servidor do Streamlit, execute o seguinte comando no seu terminal:
+- **Framework Principal:** Streamlit
+- **Banco de Dados:** SQLite
+- **Análise de Dados:** Pandas
+- **Validação de Documentos:** `validate-docbr`
+- **Requisições HTTP:** `requests`
+- **Componentes de UI:** `streamlit-modal`
 
-```bash
-streamlit run app.py
-```
+## 🚀 Como Executar
 
-O aplicativo será aberto automaticamente no seu navegador padrão.
+1.  **Clone o repositório:**
+    ```bash
+    git clone https://github.com/felipegatoloko10/streamlit-customer-app.git
+    cd streamlit-customer-app
+    ```
 
-## 🏛️ Arquitetura do Projeto
+2.  **Crie e ative um ambiente virtual:**
+    ```bash
+    python -m venv .venv
+    # Windows: .venv\Scripts\activate
+    # macOS/Linux: source .venv/bin/activate
+    ```
 
-O projeto é estruturado de forma modular para separar as responsabilidades:
+3.  **Instale as dependências:**
+    ```bash
+    pip install -r requirements.txt
+    ```
 
-- `app.py`: O ponto de entrada principal do aplicativo. Apenas redireciona para a página do Dashboard.
-- `/pages`: Contém os arquivos de cada página da aplicação. O Streamlit usa os nomes dos arquivos para criar a navegação na barra lateral.
-  - `0_🏠_Dashboard.py`: Dashboard principal com gráficos e métricas.
-  - `1_📝_Cadastro.py`: Formulário de cadastro de clientes.
-  - `2_📊_Banco_de_Dados.py`: Interface de visualização e edição da base de dados.
-  - `3_💰_Calculadora_de_Preços.py`: Calculadora de preços para impressão 3D.
-  - `4_💸_Emitir_NFS-e.py`: Placeholder para emissão de notas fiscais.
-  - `5_💾_Backup.py`: Página de backup e restauração.
-- `database.py`: Contém toda a lógica de interação com o banco de dados SQLite. Define o esquema da tabela e as funções CRUD (Create, Read, Update, Delete).
-- `services.py`: Lógica para interagir com APIs externas (ViaCEP, BrasilAPI) e para enviar e-mails de notificação.
-- `validators.py`: Funções para validar e formatar dados como CPF, CNPJ, e-mail e telefone.
-- `requirements.txt`: Lista de todas as bibliotecas Python necessárias para o projeto.
-- `customers.db`: Arquivo do banco de dados SQLite onde os dados dos clientes são armazenados.
-- `presets.json`: Arquivo JSON onde as predefinições da calculadora de preços são salvas.
+4.  **Execute o app:**
+    ```bash
+    streamlit run app.py
+    ```
 
-## 🔮 Melhorias Futuras e Sugestões
-
-Esta é uma lista de melhorias e refatorações sugeridas para tornar o aplicativo mais robusto e manutenível:
-
-- **Banco de Dados:**
-  - **Persistência dos Presets:** Mover as predefinições da calculadora de `presets.json` para uma nova tabela no banco de dados `customers.db` para garantir a persistência em ambientes de nuvem.
-- **Segurança:**
-  - **Backup Automático:** Na página de Backup, implementar um backup automático do banco de dados atual antes de executar uma restauração, como uma camada extra de segurança.
-- **Código e Arquitetura:**
-  - **Remover Dependências Inutilizadas:** Remover `psycopg2-binary` do `requirements.txt`.
-  - **Configuração Centralizada:** Mover configurações como a URL da aplicação (atualmente fixa no `services.py`) para um arquivo de configuração ou para o `st.secrets`.
-  - **Refatorar Páginas Complexas:** Simplificar o gerenciamento de estado e a lógica de UI nas páginas `1_📝_Cadastro.py` e `2_📊_Banco_de_Dados.py` para reduzir a complexidade e o uso de `st.rerun()`. Adotar componentes como `st.data_editor` pode ser uma boa alternativa.
-- **Novas Funcionalidades:**
-  - **Integração com NFS-e:** Desenvolver a integração real com a API da NFS-e para permitir a emissão de notas fiscais diretamente pelo sistema.
+---
