@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import database
 import datetime
-from streamlit_modal import Modal
+
 import math
 import logging
 import urllib.parse
@@ -194,27 +194,36 @@ def show_customer_details(customer_id):
                     st.rerun()
 
         with col_delete:
-            delete_modal = Modal("Confirmar Exclusão", key="delete_modal", padding=20, max_width=400)
-            if st.button("🗑️ Excluir Cliente", width='stretch'):
-                delete_modal.open()
+            # Initialize confirmation state
+            if 'confirming_delete' not in st.session_state:
+                st.session_state.confirming_delete = False
 
-            if delete_modal.is_open():
-                with delete_modal.container():
-                    st.write(f"Tem certeza de que deseja excluir o cliente **{customer.get('nome_completo')}**?")
-                    if st.button("Sim, Excluir", type="primary", key="confirm_delete_button"):
-                        try:
-                            database.delete_customer(customer_id)
-                            st.session_state['db_status'] = {'success': True, 'message': "Cliente excluído com sucesso!"}
-                            del st.session_state.selected_customer_id
-                            st.session_state.edit_mode = False
-                            delete_modal.close()
+            # Se o modo de edição estiver ativo, não mostre o botão de exclusão
+            if not st.session_state.edit_mode:
+                if st.session_state.confirming_delete:
+                    st.warning(f"Tem certeza que deseja excluir **{customer.get('nome_completo')}**? Esta ação não pode ser desfeita.")
+                    
+                    c1, c2 = st.columns(2)
+                    with c1:
+                        if st.button("Sim, excluir permanentemente", type="primary", use_container_width=True):
+                            try:
+                                database.delete_customer(customer_id)
+                                st.session_state['db_status'] = {'success': True, 'message': "Cliente excluído com sucesso!"}
+                                st.session_state.confirming_delete = False
+                                del st.session_state.selected_customer_id
+                                st.rerun()
+                            except database.DatabaseError as e:
+                                st.session_state['db_status'] = {'success': False, 'message': str(e)}
+                                st.session_state.confirming_delete = False
+                                st.rerun()
+                    with c2:
+                        if st.button("Cancelar", use_container_width=True):
+                            st.session_state.confirming_delete = False
                             st.rerun()
-                        except database.DatabaseError as e:
-                            st.session_state['db_status'] = {'success': False, 'message': str(e)}
-                            delete_modal.close()
-                            st.rerun()
-                    if st.button("Não, Manter"):
-                        delete_modal.close()
+                else:
+                    if st.button("🗑️ Excluir Cliente", use_container_width=True):
+                        st.session_state.confirming_delete = True
+                        st.rerun()
 
         st.markdown("---")
 
