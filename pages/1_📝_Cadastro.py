@@ -44,7 +44,6 @@ def on_change_callback(form_key, widget_key):
         else:
             st.session_state.form_data['contato1'] = ""
             st.session_state.widget_contato1_input = ""
-        st.rerun() # Force rerun to update disabled state and value of contato1
 
 
 def clear_form_inputs():
@@ -210,13 +209,11 @@ with st.container(border=True):
                     st.rerun() # Rerun to reflect changes immediately
         st.markdown("---")
     
-    st.text_input(
-        'Nome Completo / Razão Social *', 
-        key="widget_nome_completo_input", 
-        value=st.session_state.widget_nome_completo_input,
-        on_change=lambda: on_change_callback("nome_completo", "widget_nome_completo_input")
-    )
-
+        st.text_input(
+            'Nome Completo / Razão Social *',
+            key="widget_nome_completo_input",
+            on_change=lambda: on_change_callback("nome_completo", "widget_nome_completo_input")
+        )
     label_documento = "CPF *" if st.session_state.form_data['tipo_documento'] == "CPF" else "CNPJ *"
     st.text_input(
         label_documento, 

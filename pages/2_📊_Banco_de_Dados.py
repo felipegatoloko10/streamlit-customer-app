@@ -201,7 +201,7 @@ def show_customer_details(customer_id):
             if delete_modal.is_open():
                 with delete_modal.container():
                     st.write(f"Tem certeza de que deseja excluir o cliente **{customer.get('nome_completo')}**?")
-                    if st.button("Sim, Excluir", type="primary"):
+                    if st.button("Sim, Excluir", type="primary", key="confirm_delete_button"):
                         try:
                             database.delete_customer(customer_id)
                             st.session_state['db_status'] = {'success': True, 'message': "Cliente excluído com sucesso!"}
