@@ -2,6 +2,9 @@ import re
 from validate_docbr import CPF, CNPJ
 from email_validator import validate_email, EmailNotValidError
 
+cpf_validator = CPF()
+cnpj_validator = CNPJ()
+
 class ValidationError(Exception):
     """Exceção base para erros de validação."""
     pass
@@ -30,11 +33,10 @@ def format_cpf(cpf: str) -> str:
     cpf_cleaned = re.sub(r'[^0-9]', '', cpf)
     if len(cpf_cleaned) == 11:
         return f'{cpf_cleaned[:3]}.{cpf_cleaned[3:6]}.{cpf_cleaned[6:9]}-{cpf_cleaned[9:]}'
-    return "" # Retorna string vazia se não for possível formatar
+    return cpf_cleaned # Retorna a string limpa se não for possível formatar
 
 def is_valid_cpf(cpf: str) -> bool:
     """Verifica se um CPF é válido. Lança CPFValueError se inválido."""
-    cpf_validator = CPF()
     if not cpf_validator.validate(cpf):
         raise CPFValueError("O CPF informado é inválido.")
     return True
@@ -46,11 +48,10 @@ def format_cnpj(cnpj: str) -> str:
     cnpj_cleaned = re.sub(r'[^0-9]', '', cnpj)
     if len(cnpj_cleaned) == 14:
         return f'{cnpj_cleaned[:2]}.{cnpj_cleaned[2:5]}.{cnpj_cleaned[5:8]}/{cnpj_cleaned[8:12]}-{cnpj_cleaned[12:]}'
-    return "" # Retorna string vazia se não for possível formatar
+    return cnpj_cleaned # Retorna a string limpa se não for possível formatar
 
 def is_valid_cnpj(cnpj: str) -> bool:
     """Verifica se um CNPJ é válido. Lança CNPJValueError se inválido."""
-    cnpj_validator = CNPJ()
     if not cnpj_validator.validate(cnpj):
         raise CNPJValueError("O CNPJ informado é inválido.")
     return True
@@ -64,7 +65,7 @@ def format_whatsapp(whatsapp: str) -> str:
         return f'({whatsapp_cleaned[:2]}) {whatsapp_cleaned[2:7]}-{whatsapp_cleaned[7:]}'
     if len(whatsapp_cleaned) == 10:
         return f'({whatsapp_cleaned[:2]}) {whatsapp_cleaned[2:6]}-{whatsapp_cleaned[6:]}'
-    return "" # Retorna string vazia se não for possível formatar
+    return whatsapp_cleaned # Retorna a string limpa se não for possível formatar
 
 def is_valid_whatsapp(whatsapp: str) -> bool:
     # ... (função mantida como antes)
@@ -87,14 +88,12 @@ def is_valid_whatsapp(whatsapp: str) -> bool:
     return True
 
 def is_valid_email(email: str) -> bool:
-    # ... (função mantida como antes)
-    if not email:
-        raise EmailValueError("O campo de e-mail não pode estar vazio.")
     try:
         # Desativa a verificação de DNS para os testes e para agilizar
         validate_email(email, check_deliverability=False)
         return True
     except EmailNotValidError as e:
+        # A biblioteca já trata o caso de e-mail vazio/nulo
         raise EmailValueError(f"O formato do e-mail é inválido: {e}")
 
 def get_whatsapp_url(whatsapp: str) -> str:

@@ -24,47 +24,48 @@ def create_donut_chart(data: pd.DataFrame, category_col: str, value_col: str, ti
     )
 
 # --- State Initialization ---
-
 if 'date_range' not in st.session_state:
     today = datetime.date.today()
     st.session_state.date_range = (datetime.date(today.year, 1, 1), today)
-if 'use_date_filter' not in st.session_state:
-    st.session_state.use_date_filter = True
+# The 'date_filter_checkbox' key will be initialized by the widget itself.
+# Default to True if it doesn't exist yet for the first run.
+if 'date_filter_checkbox' not in st.session_state:
+    st.session_state.date_filter_checkbox = True
 
 # --- UI: Date Filter ---
-
 st.title("🏠 Dashboard de Clientes")
 st.subheader("Filtro por Período")
 
 col_filter_toggle, col_date_input = st.columns([1, 2])
 with col_filter_toggle:
-    use_filter = st.checkbox(
+    st.checkbox(
         "Ativar filtro de data",
-        value=st.session_state.use_date_filter,
         key="date_filter_checkbox"
     )
 
 with col_date_input:
-    selected_range = st.date_input(
+    # When the date_input is used, its value is stored in st.session_state.date_range
+    st.date_input(
         "Selecione o período:",
-        value=st.session_state.date_range,
+        key='date_range',
         min_value=datetime.date(2020, 1, 1),
         max_value=datetime.date.today(),
         format="DD/MM/YYYY",
-        disabled=not use_filter
+        disabled=not st.session_state.date_filter_checkbox
     )
 
 # --- Logic: Determine Date Range ---
-
 current_start_date, current_end_date = (None, None)
-if use_filter:
-    if isinstance(selected_range, tuple) and len(selected_range) == 2:
-        current_start_date, current_end_date = selected_range
-        st.session_state.date_range = (current_start_date, current_end_date)
-    else:
-        st.warning("Por favor, selecione um período de início e fim.")
-        # Fallback to the last valid range to prevent errors
+if st.session_state.date_filter_checkbox:
+    # Ensure selected_range is a valid tuple of two dates before assigning
+    if isinstance(st.session_state.date_range, tuple) and len(st.session_state.date_range) == 2:
         current_start_date, current_end_date = st.session_state.date_range
+    else:
+        # This case might happen if the state gets corrupted, fallback to a default
+        st.warning("O período selecionado é inválido, usando o período padrão.")
+        today = datetime.date.today()
+        current_start_date, current_end_date = (datetime.date(today.year, 1, 1), today)
+        st.session_state.date_range = (current_start_date, current_end_date)
 
 st.markdown("---")
 

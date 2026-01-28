@@ -72,9 +72,26 @@ def editable_field(label: str, value: any, key: str, is_date=False, is_text_area
             st.session_state.edited_data[key] = st.date_input(label, value=value, key=f"edit_{key}", help=help_text)
         elif is_text_area:
             st.session_state.edited_data[key] = st.text_area(label, value=display_value, key=f"edit_{key}", help=help_text)
+        elif is_phone:
+            # Unformat phone number for editing
+            unformatted_value = validators.unformat_whatsapp(display_value)
+            st.session_state.edited_data[key] = st.text_input(label, value=unformatted_value, key=f"edit_{key}", help=help_text)
+            if WHATSAPP_ICON and unformatted_value:
+                 whatsapp_url = validators.get_whatsapp_url(unformatted_value)
+                 st.markdown(
+                     f"""
+                     <div style="text-align: right; margin-top: -30px; margin-bottom: 20px;">
+                         <a href="{whatsapp_url}" target="_blank">
+                             <img src="data:image/png;base64,{WHATSAPP_ICON}" width="25">
+                         </a>
+                     </div>
+                     """, 
+                     unsafe_allow_html=True
+                 )
         else:
             st.session_state.edited_data[key] = st.text_input(label, value=display_value, key=f"edit_{key}", help=help_text)
     else:
+        # View mode (original logic)
         if is_phone:
             col_text, col_icon = st.columns([0.9, 0.1])
             with col_text:

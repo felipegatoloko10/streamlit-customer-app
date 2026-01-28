@@ -79,53 +79,70 @@ def _validate_row(row: pd.Series):
         raise validators.ValidationError("Os campos 'Nome Completo' e 'Tipo de Documento' são obrigatórios.")
 
     if doc_type == 'CPF':
-        if not row.get('cpf') or len(row.get('cpf')) == 0:
+        if not row.get('cpf'):
             raise validators.ValidationError("O campo 'CPF' é obrigatório.")
         validators.is_valid_cpf(row['cpf'])
     elif doc_type == 'CNPJ':
-        if not row.get('cnpj') or len(row.get('cnpj')) == 0:
+        if not row.get('cnpj'):
             raise validators.ValidationError("O campo 'CNPJ' é obrigatório.")
         validators.is_valid_cnpj(row['cnpj'])
     
-    if row.get('telefone1') and len(row.get('telefone1')) > 0:
+    # As funções de validação já lidam com valores vazios,
+    # mas a verificação explícita aqui evita chamadas desnecessárias.
+    if row.get('telefone1'):
         validators.is_valid_whatsapp(row['telefone1'])
-    if row.get('telefone2') and len(row.get('telefone2')) > 0:
+    if row.get('telefone2'):
         validators.is_valid_whatsapp(row['telefone2'])
-    if row.get('email') and len(row.get('email')) > 0:
+    if row.get('email'):
         validators.is_valid_email(row['email'])
 
 def insert_customer(data: dict):
-    """Insere um novo cliente após validação."""
-    data_to_insert = {k: v for k, v in data.items() if v is not None and v != ''}
+    """Insere um novo cliente após validação e sanitização."""
     
-    _validate_row(pd.Series(data_to_insert))
+    # 1. Filtra, limpa e desformata os dados de entrada usando a whitelist de colunas
+    clean_data = {}
+    for col in DB_COLUMNS:
+        if col in data and data[col] not in [None, '']:
+            value = data[col]
+            # Remove a formatação para armazenamento no banco de dados
+            if col == 'cpf':
+                clean_data[col] = validators.unformat_cpf(value)
+            elif col == 'cnpj':
+                clean_data[col] = validators.unformat_cnpj(value)
+            elif col in ['telefone1', 'telefone2']:
+                clean_data[col] = validators.unformat_whatsapp(value)
+            else:
+                clean_data[col] = value
+
+    # 2. Realiza a validação nos dados já limpos e desformatados
+    _validate_row(pd.Series(clean_data))
     
     conn = get_db_connection()
     try:
-        columns = ', '.join(data_to_insert.keys())
-        placeholders = ', '.join(['?'] * len(data_to_insert))
+        # 3. Constrói a query de forma segura com as colunas validadas
+        columns = ', '.join(clean_data.keys())
+        placeholders = ', '.join(['?'] * len(clean_data))
         sql = f"INSERT INTO customers ({columns}) VALUES ({placeholders})"
         
         cursor = conn.cursor()
-        cursor.execute(sql, list(data_to_insert.values()))
-        new_customer_id = cursor.lastrowid  # Pega o ID do cliente recém-criado
+        cursor.execute(sql, list(clean_data.values()))
+        new_customer_id = cursor.lastrowid
         conn.commit()
-        logging.info(f"Cliente '{data.get('nome_completo')}' inserido com sucesso com ID: {new_customer_id}.")
+        logging.info(f"Cliente '{clean_data.get('nome_completo')}' inserido com sucesso com ID: {new_customer_id}.")
 
-        # Tenta enviar o e-mail de notificação (sem quebrar a aplicação se falhar)
+        # Tenta enviar o e-mail de notificação (passando dados originais formatados)
         try:
             services.send_new_customer_email(data, new_customer_id)
         except Exception as e:
             logging.error(f"Falha ao enviar e-mail de notificação para o cliente ID {new_customer_id}: {e}")
-            # O st.warning será mostrado na tela pelo próprio service
         
     except sqlite3.IntegrityError as e:
-        logging.warning(f"Tentativa de inserir CPF/CNPJ duplicado.")
-        raise DuplicateEntryError(f"O CPF ou CNPJ informado já existe no banco de dados.") from e
+        logging.warning(f"Tentativa de inserir CPF/CNPJ duplicado para '{clean_data.get('nome_completo')}'.")
+        raise DuplicateEntryError("O CPF ou CNPJ informado já existe no banco de dados.") from e
     except sqlite3.Error as e:
-        logging.error(f"Erro ao inserir cliente: {e}")
+        logging.error(f"Erro ao inserir cliente '{clean_data.get('nome_completo')}': {e}")
         conn.rollback()
-        raise DatabaseError(f"Ocorreu um erro ao salvar: {e}") from e
+        raise DatabaseError(f"Ocorreu um erro ao salvar o novo cliente: {e}") from e
 
 def delete_customer(customer_id: int):
     """Deleta um cliente do banco de dados pelo ID."""
@@ -143,59 +160,45 @@ def delete_customer(customer_id: int):
         raise DatabaseError(f"Ocorreu um erro ao excluir o cliente: {e}") from e
 
 def update_customer(customer_id: int, data: dict):
-    """Atualiza os dados de um cliente existente após validação."""
-    data_to_update = {k: v for k, v in data.items() if v is not None}
+    """Atualiza os dados de um cliente existente após validação e sanitização."""
+    
+    # 1. Filtra, limpa e desformata os dados de entrada usando a whitelist
+    update_payload = {}
+    for col in DB_COLUMNS:
+        if col in data and data[col] is not None:
+            value = data[col]
+            # Remove a formatação para armazenamento no banco
+            if col == 'cpf':
+                update_payload[col] = validators.unformat_cpf(value)
+            elif col == 'cnpj':
+                update_payload[col] = validators.unformat_cnpj(value)
+            elif col in ['telefone1', 'telefone2']:
+                update_payload[col] = validators.unformat_whatsapp(value)
+            else:
+                update_payload[col] = value
+
+    if not update_payload:
+        logging.info(f"Nenhum dado para atualizar para o cliente ID {customer_id}.")
+        return
 
     conn = get_db_connection()
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    
     try:
-        # Busca os dados originais para validação completa
+        # 2. Para validação, busca os dados atuais e mescla com os novos
+        cursor = conn.cursor()
+        cursor.row_factory = sqlite3.Row
         cursor.execute("SELECT * FROM customers WHERE id = ?", (customer_id,))
         original_customer_row = cursor.fetchone()
+        
         if not original_customer_row:
             raise DatabaseError(f"Cliente com ID {customer_id} não encontrado para atualização.")
         
-        original_customer_dict = dict(original_customer_row)
+        merged_data_for_validation = dict(original_customer_row)
+        merged_data_for_validation.update(update_payload)
         
-        # Cria uma visão mesclada dos dados para validação
-        merged_data_for_validation = original_customer_dict.copy()
-        merged_data_for_validation.update(data_to_update)
-
-        # Remove a formatação dos campos relevantes antes da validação
-        doc_type = merged_data_for_validation.get('tipo_documento')
-        if doc_type == 'CPF' and 'cpf' in merged_data_for_validation:
-            merged_data_for_validation['cpf'] = validators.unformat_cpf(merged_data_for_validation['cpf'])
-        elif doc_type == 'CNPJ' and 'cnpj' in merged_data_for_validation:
-            merged_data_for_validation['cnpj'] = validators.unformat_cnpj(merged_data_for_validation['cnpj'])
-
-        if 'telefone1' in merged_data_for_validation:
-            merged_data_for_validation['telefone1'] = validators.unformat_whatsapp(merged_data_for_validation['telefone1'])
-        if 'telefone2' in merged_data_for_validation:
-            merged_data_for_validation['telefone2'] = validators.unformat_whatsapp(merged_data_for_validation['telefone2'])
-
-        # Realiza a validação com os dados mesclados e não formatados
+        # 3. Realiza a validação nos dados mesclados (e já desformatados)
         _validate_row(pd.Series(merged_data_for_validation))
-
-        # Prepara os dados para o update (apenas o que foi alterado)
-        update_payload = {}
-        for key, value in data_to_update.items():
-            # Remove a formatação para salvar no banco
-            if key == 'cpf':
-                update_payload[key] = validators.unformat_cpf(value)
-            elif key == 'cnpj':
-                update_payload[key] = validators.unformat_cnpj(value)
-            elif key in ['telefone1', 'telefone2']:
-                update_payload[key] = validators.unformat_whatsapp(value)
-            else:
-                update_payload[key] = value
-
-        if not update_payload:
-            logging.info(f"Nenhum dado para atualizar para o cliente ID {customer_id}.")
-            return
-
-        # Constrói e executa a query de atualização
+        
+        # 4. Constrói e executa a query de atualização de forma segura
         columns_to_update = ', '.join([f'{key} = ?' for key in update_payload.keys()])
         sql = f"UPDATE customers SET {columns_to_update} WHERE id = ?"
         
@@ -206,9 +209,11 @@ def update_customer(customer_id: int, data: dict):
 
     except (validators.ValidationError, sqlite3.IntegrityError) as e:
         conn.rollback()
-        logging.error(f"Erro de validação ou integridade ao atualizar cliente ID {customer_id}: {e}")
-        # A mensagem de erro específica de validação já é clara o suficiente
-        raise DuplicateEntryError(str(e)) from e
+        # Garante que a mensagem de erro da validação seja propagada
+        error_message = str(e) if isinstance(e, validators.ValidationError) else "O CPF ou CNPJ informado já pertence a outro cliente."
+        logging.error(f"Erro de validação ou integridade ao atualizar cliente ID {customer_id}: {error_message}")
+        raise DuplicateEntryError(error_message) from e
+        
     except sqlite3.Error as e:
         conn.rollback()
         logging.error(f"Erro de banco de dados ao atualizar cliente ID {customer_id}: {e}")
