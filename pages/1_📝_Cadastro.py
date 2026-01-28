@@ -151,14 +151,34 @@ with st.container(border=True):
     with col2:
         st.markdown("<br/>", unsafe_allow_html=True)
         if st.button("Buscar Endereço"):
-            services.fetch_address_data(st.session_state.widget_cep_input, st.session_state.form_data)
-            # Propagate updated form_data to widget states
-            st.session_state.widget_cep_address_input = st.session_state.form_data['cep']
-            st.session_state.widget_endereco_input = st.session_state.form_data['endereco']
-            st.session_state.widget_bairro_input = st.session_state.form_data['bairro']
-            st.session_state.widget_cidade_input = st.session_state.form_data['cidade']
-            st.session_state.widget_estado_input = st.session_state.form_data['estado']
-            st.rerun() # Rerun to reflect changes immediately
+            cep_to_search = st.session_state.widget_cep_input
+            try:
+                with st.spinner("Buscando CEP..."):
+                    address_data = services.fetch_address_data(cep_to_search)
+                
+                if address_data:
+                    st.toast("Endereço encontrado!", icon="✅")
+                    # Atualiza o dicionário principal com os novos dados
+                    st.session_state.form_data.update(address_data)
+                    st.session_state.form_data['cep'] = cep_to_search # Atualiza o CEP no formulário
+
+                    # Propaga os dados para os widgets individuais para refletir na UI
+                    st.session_state.widget_cep_address_input = st.session_state.form_data['cep']
+                    st.session_state.widget_endereco_input = st.session_state.form_data['endereco']
+                    st.session_state.widget_bairro_input = st.session_state.form_data['bairro']
+                    st.session_state.widget_cidade_input = st.session_state.form_data['cidade']
+                    st.session_state.widget_estado_input = st.session_state.form_data['estado']
+                else:
+                    st.warning("CEP não encontrado. Por favor, preencha o endereço manualmente.")
+            
+            except ValueError as e:
+                st.error(f"Erro de validação: {e}")
+            except requests.exceptions.RequestException as e:
+                st.error(f"Erro de rede ao buscar o CEP: {e}")
+            except Exception as e:
+                st.error(f"Ocorreu um erro inesperado: {e}")
+            
+            st.rerun()
 
 
 st.markdown("---")
@@ -193,20 +213,41 @@ with st.container(border=True):
                 )
             with col_cnpj_btn:
                 if st.button("🔎 Buscar CNPJ", use_container_width=True):
-                    services.fetch_cnpj_data(st.session_state.widget_cnpj_search_input, st.session_state.form_data)
-                    # Propagate updated form_data to widget states
-                    st.session_state.widget_nome_completo_input = st.session_state.form_data['nome_completo']
-                    st.session_state.widget_documento_input = st.session_state.form_data['documento']
-                    st.session_state.widget_email_input = st.session_state.form_data['email']
-                    st.session_state.widget_telefone1_input = st.session_state.form_data['telefone1']
-                    st.session_state.widget_cep_address_input = st.session_state.form_data['cep']
-                    st.session_state.widget_endereco_input = st.session_state.form_data['endereco']
-                    st.session_state.widget_numero_input = st.session_state.form_data['numero']
-                    st.session_state.widget_complemento_input = st.session_state.form_data['complemento']
-                    st.session_state.widget_bairro_input = st.session_state.form_data['bairro']
-                    st.session_state.widget_cidade_input = st.session_state.form_data['cidade']
-                    st.session_state.widget_estado_input = st.session_state.form_data['estado']
-                    st.rerun() # Rerun to reflect changes immediately
+                    cnpj_to_search = st.session_state.widget_cnpj_search_input
+                    try:
+                        with st.spinner("Buscando dados do CNPJ..."):
+                            cnpj_data = services.fetch_cnpj_data(cnpj_to_search)
+                        
+                        st.toast("Dados do CNPJ preenchidos com sucesso!", icon="✅")
+                        # Atualiza o dicionário principal com os novos dados
+                        st.session_state.form_data.update(cnpj_data)
+                        
+                        # O campo 'documento' é populado com o CNPJ retornado
+                        st.session_state.form_data['documento'] = cnpj_data.get('cnpj', '')
+
+                        # Propaga os dados para os widgets individuais para refletir na UI
+                        st.session_state.widget_nome_completo_input = st.session_state.form_data['nome_completo']
+                        st.session_state.widget_documento_input = st.session_state.form_data['documento']
+                        st.session_state.widget_email_input = st.session_state.form_data['email']
+                        st.session_state.widget_telefone1_input = st.session_state.form_data['telefone1']
+                        st.session_state.widget_cep_address_input = st.session_state.form_data['cep']
+                        st.session_state.widget_endereco_input = st.session_state.form_data['endereco']
+                        st.session_state.widget_numero_input = st.session_state.form_data['numero']
+                        st.session_state.widget_complemento_input = st.session_state.form_data['complemento']
+                        st.session_state.widget_bairro_input = st.session_state.form_data['bairro']
+                        st.session_state.widget_cidade_input = st.session_state.form_data['cidade']
+                        st.session_state.widget_estado_input = st.session_state.form_data['estado']
+
+                    except ValueError as e:
+                        st.error(f"Erro de validação: {e}")
+                    except services.CnpjNotFoundError as e:
+                        st.error(f"Erro ao buscar CNPJ: {e}")
+                    except requests.exceptions.RequestException as e:
+                        st.error(f"Erro de rede ao buscar o CNPJ: {e}")
+                    except Exception as e:
+                        st.error(f"Ocorreu um erro inesperado: {e}")
+                    
+                    st.rerun()
         st.markdown("---")
     
         st.text_input(

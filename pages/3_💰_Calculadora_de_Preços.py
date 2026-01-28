@@ -65,8 +65,13 @@ def load_presets():
 def save_presets(presets):
     """Salva as predefinições no arquivo JSON."""
     os.makedirs(os.path.dirname(PRESETS_FILE), exist_ok=True)
-    with open(PRESETS_FILE, 'w') as f:
-        json.dump(presets, f, indent=4)
+    try:
+        with open(PRESETS_FILE, 'w') as f:
+            json.dump(presets, f, indent=4)
+    except IOError as e:
+        st.error(f"Erro ao salvar as predefinições: {e}")
+    except Exception as e:
+        st.error(f"Ocorreu um erro inesperado ao salvar as predefinições: {e}")
 
 # --- Funções de Cálculo (permanece a mesma) ---
 def calculate_costs(inputs):
