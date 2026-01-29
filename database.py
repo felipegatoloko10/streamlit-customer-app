@@ -73,7 +73,9 @@ def get_db_connection():
     return conn
 
 def _validate_row(row: pd.Series):
-    """Valida os dados de uma linha antes de inserir/atualizar."""
+    """Valida os dados de uma linha antes de inserir/atualizar.
+    Apenas nome e documento são estritamente obrigatórios para salvar no banco.
+    """
     doc_type = row.get('tipo_documento')
     if not row.get('nome_completo') or not doc_type:
         raise validators.ValidationError("Os campos 'Nome Completo' e 'Tipo de Documento' são obrigatórios.")
@@ -87,14 +89,8 @@ def _validate_row(row: pd.Series):
             raise validators.ValidationError("O campo 'CNPJ' é obrigatório.")
         validators.is_valid_cnpj(row['cnpj'])
     
-    # As funções de validação já lidam com valores vazios,
-    # mas a verificação explícita aqui evita chamadas desnecessárias.
-    if row.get('telefone1'):
-        validators.is_valid_whatsapp(row['telefone1'])
-    if row.get('telefone2'):
-        validators.is_valid_whatsapp(row['telefone2'])
-    if row.get('email'):
-        validators.is_valid_email(row['email'])
+    # Validações de formato para email e telefone foram removidas desta função
+    # para não bloquear o salvamento. A UI pode lidar com avisos se necessário.
 
 def insert_customer(data: dict):
     """Insere um novo cliente após validação e sanitização."""
