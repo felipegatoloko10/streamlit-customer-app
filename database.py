@@ -89,8 +89,13 @@ def _validate_row(row: pd.Series):
             raise validators.ValidationError("O campo 'CNPJ' é obrigatório.")
         validators.is_valid_cnpj(row['cnpj'])
     
-    # Validações de formato para email e telefone foram removidas desta função
-    # para não bloquear o salvamento. A UI pode lidar com avisos se necessário.
+    # Se os campos de email/telefone forem preenchidos, seu formato deve ser válido.
+    if row.get('telefone1'):
+        validators.is_valid_whatsapp(row['telefone1'])
+    if row.get('telefone2'):
+        validators.is_valid_whatsapp(row['telefone2'])
+    if row.get('email'):
+        validators.is_valid_email(row['email'])
 
 def insert_customer(data: dict):
     """Insere um novo cliente após validação e sanitização."""
