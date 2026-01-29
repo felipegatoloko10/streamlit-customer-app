@@ -89,7 +89,7 @@ df_charts, total_clientes, novos_no_periodo, clientes_por_estado_series = load_d
 # --- Main Content ---
 
 if df_charts.empty:
-    date_text = f"de **{current_start_date.strftime('%d/%m/%Y')}** a **{current_end_date.strftime('%d/%m/%Y')}**" if use_filter and current_start_date and current_end_date else ""
+    date_text = f"de **{current_start_date.strftime('%d/%m/%Y')}** a **{current_end_date.strftime('%d/%m/%Y')}**" if st.session_state.date_filter_checkbox and current_start_date and current_end_date else ""
     st.info(
         f"Ainda não há clientes cadastrados no período {date_text}. "
         "Altere o filtro de data, desative-o ou vá para a página de '📝 Cadastro' para começar."
