@@ -19,18 +19,17 @@ DEFAULT_VALUES = {
     "widget_cep_address_input": "", "widget_endereco_input": "", "widget_numero_input": "",
     "widget_complemento_input": "", "widget_bairro_input": "", "widget_cidade_input": "",
     "widget_estado_input": "", "widget_observacao_input": "", "widget_use_client_name_checkbox": False,
-    # Estados de expansão
     "expand_contatos": False, "expand_cep": False, "expand_endereco": False, "expand_obs": False
 }
 
 def initialize_state():
-    """Inicializa todas as chaves de widget e de estado no estado da sessão se não existirem."""
+    """Inicializa todas as chaves de widget no estado da sessão se não existirem."""
     for key, value in DEFAULT_VALUES.items():
         if key not in st.session_state:
             st.session_state[key] = value
 
 def clear_form():
-    """Reseta todas as chaves de widget e de estado para seus valores padrão."""
+    """Reseta todas as chaves de widget para seus valores padrão."""
     for key, value in DEFAULT_VALUES.items():
         st.session_state[key] = value
 
@@ -45,11 +44,11 @@ def load_whatsapp_icon_b64():
         return None
 
 # --- Gerenciamento Central de Estado e Callbacks ---
-initialize_state()
-
 if st.session_state.get("submission_success", False):
     clear_form()
     st.session_state.submission_success = False
+
+initialize_state()
 
 def expand_section(section_name):
     st.session_state[f"expand_{section_name}"] = True
@@ -66,8 +65,8 @@ WHATSAPP_ICON = load_whatsapp_icon_b64()
 st.title('📝 Cadastro de Clientes')
 st.write("Preencha os dados abaixo. O formulário se expandirá conforme você avança.")
 
-# Passo 1: Dados Principais
 with st.expander("Passo 1: Dados Principais", expanded=True):
+    # ... (código da seção de dados principais) ...
     st.radio("Tipo de Documento", ["CPF", "CNPJ"], horizontal=True, key="widget_tipo_documento_radio")
     if st.session_state.widget_tipo_documento_radio == "CNPJ":
         col_cnpj_input, col_cnpj_btn = st.columns([0.7, 0.3])
@@ -106,8 +105,8 @@ with st.expander("Passo 1: Dados Principais", expanded=True):
         if WHATSAPP_ICON and st.session_state.widget_telefone1_input:
             st.markdown(f'<div style="text-align: right;"><a href="{validators.get_whatsapp_url(st.session_state.widget_telefone1_input)}" target="_blank"><img src="data:image/png;base64,{WHATSAPP_ICON}" width="25"></a></div>', unsafe_allow_html=True)
 
-# Passo 2: Contatos
 with st.expander("Passo 2: Contatos", expanded=st.session_state.expand_contatos):
+    # ... (código da seção de contatos) ...
     st.date_input('Data de Nascimento / Fundação', min_value=datetime.date(1900, 1, 1), key="widget_data_nascimento_input")
     st.checkbox("Usar nome do cliente como Contato 1", key="widget_use_client_name_checkbox", on_change=handle_use_client_name_change)
     st.text_input("Nome do Contato 1", key="widget_contato1_input", disabled=st.session_state.widget_use_client_name_checkbox)
@@ -118,8 +117,8 @@ with st.expander("Passo 2: Contatos", expanded=st.session_state.expand_contatos)
     if WHATSAPP_ICON and st.session_state.widget_telefone2_input:
         st.markdown(f'<div style="text-align: right;"><a href="{validators.get_whatsapp_url(st.session_state.widget_telefone2_input)}" target="_blank"><img src="data:image/png;base64,{WHATSAPP_ICON}" width="25"></a></div>', unsafe_allow_html=True)
 
-# Passo 3: Busca de CEP
 with st.expander("Passo 3: Busca de Endereço por CEP", expanded=st.session_state.expand_cep):
+    # ... (código da seção de busca de cep) ...
     col1, col2 = st.columns([1, 2])
     with col1:
         st.text_input("CEP para busca de endereço", max_chars=9, key="widget_cep_input")
@@ -142,8 +141,8 @@ with st.expander("Passo 3: Busca de Endereço por CEP", expanded=st.session_stat
             except (ValueError, requests.exceptions.RequestException) as e:
                 st.error(str(e))
 
-# Passo 4: Endereço
 with st.expander("Passo 4: Endereço", expanded=st.session_state.expand_endereco):
+    # ... (código da seção de endereço) ...
     st.text_input('CEP', key="widget_cep_address_input")
     col_end, col_num = st.columns([3, 1])
     with col_end:
@@ -161,8 +160,8 @@ with st.expander("Passo 4: Endereço", expanded=st.session_state.expand_endereco
     with col_estado:
         st.text_input('UF', max_chars=2, key="widget_estado_input")
 
-# Passo 5: Observações
 with st.expander("Passo 5: Observações", expanded=st.session_state.expand_obs):
+    # ... (código da seção de observações) ...
     st.text_area("Observações", height=150, max_chars=1000, key="widget_observacao_input")
 
 st.markdown("---")
@@ -187,16 +186,23 @@ with col_submit:
         }
         try:
             database.insert_customer(customer_data)
-            st.balloons()
-            st.success("Cliente salvo com sucesso! O formulário será limpo.")
+            st.session_state.user_message = {"type": "success", "text": "Cliente salvo com sucesso!"}
             st.session_state.submission_success = True
-            st.rerun()
         except (validators.ValidationError, database.DatabaseError) as e:
-            st.error(f"Erro ao salvar: {e}")
+            st.session_state.user_message = {"type": "error", "text": f"Erro ao salvar: {e}"}
         except Exception as e:
-            st.error(f"Ocorreu um erro inesperado: {e}")
+            st.session_state.user_message = {"type": "error", "text": f"Ocorreu um erro inesperado: {e}"}
+        st.rerun()
 
 with col_clear:
     if st.button('Limpar Formulário', use_container_width=True):
         clear_form()
         st.rerun()
+
+# Exibição de mensagens de feedback no final da página
+if "user_message" in st.session_state:
+    message = st.session_state.pop("user_message")
+    if message["type"] == "success":
+        st.success(message["text"], icon="✅")
+    elif message["type"] == "error":
+        st.error(message["text"], icon="🚨")
