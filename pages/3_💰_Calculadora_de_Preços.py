@@ -148,43 +148,42 @@ with st.expander("💾 Gerenciar Predefinições", expanded=False):
 st.markdown("---")
 st.subheader("⚙️ Insira os Dados do Projeto")
 
-with st.form("price_calculator_form"):
-    with st.expander("Passo 1: Custos de Mão de Obra e Tempo", expanded=True):
-        c1, c2 = st.columns(2)
-        c1.number_input("Horas de design (SolidWorks)", min_value=0.0, step=0.5, key='design_hours')
-        c2.number_input("Valor da hora de design (R$)", min_value=0.0, step=5.0, key='design_rate')
-        c1.number_input("Horas de preparo/fatiamento", min_value=0.0, step=0.25, key='slice_hours')
-        c2.number_input("Valor da hora de preparo (R$)", min_value=0.0, step=5.0, key='slice_rate')
-        c1.number_input("Horas de montagem", min_value=0.0, step=0.25, key='assembly_hours')
-        c2.number_input("Valor da hora de montagem (R$)", min_value=0.0, step=5.0, key='assembly_rate')
-        c1.number_input("Horas de pós-processamento", min_value=0.0, step=0.25, key='post_process_h')
-        c2.number_input("Valor da hora de pós-processamento (R$)", min_value=0.0, step=5.0, key='labor_rate_h', on_change=lambda: expand_section("impressao"))
+with st.expander("Passo 1: Custos de Mão de Obra e Tempo", expanded=True):
+    c1, c2 = st.columns(2)
+    c1.number_input("Horas de design (SolidWorks)", min_value=0.0, step=0.5, key='design_hours')
+    c2.number_input("Valor da hora de design (R$)", min_value=0.0, step=5.0, key='design_rate')
+    c1.number_input("Horas de preparo/fatiamento", min_value=0.0, step=0.25, key='slice_hours')
+    c2.number_input("Valor da hora de preparo (R$)", min_value=0.0, step=5.0, key='slice_rate')
+    c1.number_input("Horas de montagem", min_value=0.0, step=0.25, key='assembly_hours')
+    c2.number_input("Valor da hora de montagem (R$)", min_value=0.0, step=5.0, key='assembly_rate')
+    c1.number_input("Horas de pós-processamento", min_value=0.0, step=0.25, key='post_process_h')
+    c2.number_input("Valor da hora de pós-processamento (R$)", min_value=0.0, step=5.0, key='labor_rate_h', on_change=lambda: expand_section("impressao"))
 
-    with st.expander("Passo 2: Custos de Impressão e Material", expanded=st.session_state.expand_impressao):
-        c1, c2 = st.columns(2)
-        c1.number_input("Tempo de impressão (horas)", min_value=0.0, step=0.25, key='print_time_h')
-        c1.number_input("Peso do material (gramas)", min_value=0.0, step=1.0, key='material_weight_g')
-        c2.number_input("Custo do filamento (R$ por kg)", min_value=0.0, step=10.0, key='filament_cost_kg')
-        c2.number_input("Consumo da impressora (Watts)", min_value=0.0, step=10.0, key='printer_consumption_w')
-        c1.number_input("Custo da eletricidade (R$ por kWh)", min_value=0.0, step=0.01, format="%.2f", key='kwh_cost')
-        c2.number_input("Desgaste da impressora (R$ por hora)", min_value=0.0, step=0.50, format="%.2f", key='printer_wear_rate_h', on_change=lambda: expand_section("fatores"))
+with st.expander("Passo 2: Custos de Impressão e Material", expanded=st.session_state.expand_impressao):
+    c1, c2 = st.columns(2)
+    c1.number_input("Tempo de impressão (horas)", min_value=0.0, step=0.25, key='print_time_h')
+    c1.number_input("Peso do material (gramas)", min_value=0.0, step=1.0, key='material_weight_g')
+    c2.number_input("Custo do filamento (R$ por kg)", min_value=0.0, step=10.0, key='filament_cost_kg')
+    c2.number_input("Consumo da impressora (Watts)", min_value=0.0, step=10.0, key='printer_consumption_w')
+    c1.number_input("Custo da eletricidade (R$ por kWh)", min_value=0.0, step=0.01, format="%.2f", key='kwh_cost')
+    c2.number_input("Desgaste da impressora (R$ por hora)", min_value=0.0, step=0.50, format="%.2f", key='printer_wear_rate_h', on_change=lambda: expand_section("fatores"))
 
-    with st.expander("Passo 3: Fatores de Negócio e Risco", expanded=st.session_state.expand_fatores):
-        c1, c2 = st.columns(2)
-        c1.number_input("Taxa de falha (%)", min_value=0.0, max_value=100.0, step=1.0, key='failure_rate_percent')
-        c2.number_input("Fator de complexidade (multiplicador)", min_value=1.0, step=0.1, help="Use 1.0 para normal, 1.5 para complexo, etc.", key='complexity_factor')
-        c1.number_input("Taxa de urgência (%)", min_value=0.0, max_value=200.0, step=5.0, key='urgency_fee_percent')
-        c2.number_input("Margem de lucro (%)", min_value=0.0, step=5.0, key='profit_margin_percent')
+with st.expander("Passo 3: Fatores de Negócio e Risco", expanded=st.session_state.expand_fatores):
+    c1, c2 = st.columns(2)
+    c1.number_input("Taxa de falha (%)", min_value=0.0, max_value=100.0, step=1.0, key='failure_rate_percent')
+    c2.number_input("Fator de complexidade (multiplicador)", min_value=1.0, step=0.1, help="Use 1.0 para normal, 1.5 para complexo, etc.", key='complexity_factor')
+    c1.number_input("Taxa de urgência (%)", min_value=0.0, max_value=200.0, step=5.0, key='urgency_fee_percent')
+    c2.number_input("Margem de lucro (%)", min_value=0.0, step=5.0, key='profit_margin_percent')
     
-    submitted = st.form_submit_button("Calcular Preço", type="primary", use_container_width=True)
+st.button("Calcular Preço", type="primary", use_container_width=True, key="calculate_button")
+
+if st.session_state.get("calculate_button"):
+    current_inputs = {key: st.session_state[key] for key in DEFAULT_CALC_INPUTS}
+    st.session_state.calc_results = calculate_costs(current_inputs)
 
 if st.button("🧹 Limpar Formulário", use_container_width=True):
     clear_calculator_state()
     st.rerun()
-
-if submitted:
-    current_inputs = {key: st.session_state[key] for key in DEFAULT_CALC_INPUTS}
-    st.session_state.calc_results = calculate_costs(current_inputs)
 
 if 'calc_results' in st.session_state:
     results = st.session_state.calc_results
