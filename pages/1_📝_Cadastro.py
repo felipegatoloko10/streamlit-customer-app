@@ -54,7 +54,6 @@ def clear_form_inputs():
     st.session_state.widget_cep_input = ""
     st.session_state.widget_cnpj_search_input = ""
     st.session_state.widget_tipo_documento_radio = "CPF"
-
     st.session_state.widget_nome_completo_input = ""
     st.session_state.widget_documento_input = ""
     st.session_state.widget_email_input = ""
@@ -72,55 +71,44 @@ def clear_form_inputs():
     st.session_state.widget_cidade_input = ""
     st.session_state.widget_estado_input = ""
     st.session_state.widget_observacao_input = ""
-    st.session_state.widget_use_client_name_checkbox = False # Reset checkbox
+    st.session_state.widget_use_client_name_checkbox = False
 
     if 'cep_notification' in st.session_state:
         del st.session_state.cep_notification
     if 'form_error' in st.session_state:
         del st.session_state.form_error
     
-    st.rerun() # Rerun to reflect changes immediately
+    st.rerun()
 
 
 # --- Carrega o ícone do WhatsApp ---
 WHATSAPP_ICON = load_whatsapp_icon_b64()
 
-# --- Initialize Form Data in Session State ---
+# --- Initialize Form Data and Widget Keys in Session State ---
 if 'form_data' not in st.session_state:
     st.session_state.form_data = DEFAULT_FORM_DATA.copy()
-
-
-# --- Initialize Widget Keys in Session State ---
-# This ensures every widget has an initialized value in st.session_state
-if 'widget_cep_input' not in st.session_state: st.session_state.widget_cep_input = ""
-if 'widget_cnpj_search_input' not in st.session_state: st.session_state.widget_cnpj_search_input = ""
-if 'widget_tipo_documento_radio' not in st.session_state: st.session_state.widget_tipo_documento_radio = "CPF"
-
-if 'widget_nome_completo_input' not in st.session_state: st.session_state.widget_nome_completo_input = ""
-if 'widget_documento_input' not in st.session_state: st.session_state.widget_documento_input = ""
-if 'widget_email_input' not in st.session_state: st.session_state.widget_email_input = ""
-if 'widget_telefone1_input' not in st.session_state: st.session_state.widget_telefone1_input = ""
-if 'widget_data_nascimento_input' not in st.session_state: st.session_state.widget_data_nascimento_input = None
-if 'widget_contato1_input' not in st.session_state: st.session_state.widget_contato1_input = ""
-if 'widget_cargo_input' not in st.session_state: st.session_state.widget_cargo_input = ""
-if 'widget_contato2_input' not in st.session_state: st.session_state.widget_contato2_input = ""
-if 'widget_telefone2_input' not in st.session_state: st.session_state.widget_telefone2_input = ""
-if 'widget_cep_address_input' not in st.session_state: st.session_state.widget_cep_address_input = ""
-if 'widget_endereco_input' not in st.session_state: st.session_state.widget_endereco_input = ""
-if 'widget_numero_input' not in st.session_state: st.session_state.widget_numero_input = ""
-if 'widget_complemento_input' not in st.session_state: st.session_state.widget_complemento_input = ""
-if 'widget_bairro_input' not in st.session_state: st.session_state.widget_bairro_input = ""
-if 'widget_cidade_input' not in st.session_state: st.session_state.widget_cidade_input = ""
-if 'widget_estado_input' not in st.session_state: st.session_state.widget_estado_input = ""
-if 'widget_observacao_input' not in st.session_state: st.session_state.widget_observacao_input = ""
-if 'widget_use_client_name_checkbox' not in st.session_state: st.session_state.widget_use_client_name_checkbox = False
-
-
-# --- Lógica para atualizar o CEP vindo da busca de CNPJ ---
-# This updates form_data, which then needs to be propagated to widget state
-if "cep_from_cnpj" in st.session_state:
-    st.session_state.form_data['cep'] = st.session_state.pop("cep_from_cnpj")
-    st.session_state.widget_cep_address_input = st.session_state.form_data['cep'] # Propagate to widget state
+    # Initialize all widget keys from form_data on the first run
+    st.session_state.widget_cep_input = st.session_state.form_data['cep']
+    st.session_state.widget_cnpj_search_input = ""
+    st.session_state.widget_tipo_documento_radio = st.session_state.form_data['tipo_documento']
+    st.session_state.widget_nome_completo_input = st.session_state.form_data['nome_completo']
+    st.session_state.widget_documento_input = st.session_state.form_data['documento']
+    st.session_state.widget_email_input = st.session_state.form_data['email']
+    st.session_state.widget_telefone1_input = st.session_state.form_data['telefone1']
+    st.session_state.widget_data_nascimento_input = st.session_state.form_data['data_nascimento']
+    st.session_state.widget_contato1_input = st.session_state.form_data['contato1']
+    st.session_state.widget_cargo_input = st.session_state.form_data['cargo']
+    st.session_state.widget_contato2_input = st.session_state.form_data['contato2']
+    st.session_state.widget_telefone2_input = st.session_state.form_data['telefone2']
+    st.session_state.widget_cep_address_input = st.session_state.form_data['cep']
+    st.session_state.widget_endereco_input = st.session_state.form_data['endereco']
+    st.session_state.widget_numero_input = st.session_state.form_data['numero']
+    st.session_state.widget_complemento_input = st.session_state.form_data['complemento']
+    st.session_state.widget_bairro_input = st.session_state.form_data['bairro']
+    st.session_state.widget_cidade_input = st.session_state.form_data['cidade']
+    st.session_state.widget_estado_input = st.session_state.form_data['estado']
+    st.session_state.widget_observacao_input = st.session_state.form_data['observacao']
+    st.session_state.widget_use_client_name_checkbox = st.session_state.form_data['use_client_name']
 
 
 # --- Lógica de Estado para Notificações ---
@@ -147,7 +135,7 @@ with st.container(border=True):
     st.subheader("Busca de Endereço por CEP")
     col1, col2 = st.columns([1, 2])
     with col1:
-        st.text_input("CEP", max_chars=9, key="widget_cep_input", value=st.session_state.widget_cep_input)
+        st.text_input("CEP", max_chars=9, key="widget_cep_input")
     with col2:
         st.markdown("<br/>", unsafe_allow_html=True)
         if st.button("Buscar Endereço"):
@@ -158,9 +146,8 @@ with st.container(border=True):
                 
                 if address_data:
                     st.toast("Endereço encontrado!", icon="✅")
-                    # Atualiza o dicionário principal com os novos dados
                     st.session_state.form_data.update(address_data)
-                    st.session_state.form_data['cep'] = cep_to_search # Atualiza o CEP no formulário
+                    st.session_state.form_data['cep'] = cep_to_search
 
                     # Propaga os dados para os widgets individuais para refletir na UI
                     st.session_state.widget_cep_address_input = st.session_state.form_data['cep']
@@ -187,29 +174,22 @@ st.markdown("---")
 with st.container(border=True):
     st.subheader("Dados Principais")
     
-    col_tipo_doc, col_radio = st.columns([0.7, 0.3])
-    with col_radio:
-        st.radio(
-            "Tipo de Documento", 
-            ["CPF", "CNPJ"], 
-            horizontal=True, 
-            key="widget_tipo_documento_radio", 
-            label_visibility="collapsed",
-            index=["CPF", "CNPJ"].index(st.session_state.widget_tipo_documento_radio),
-            on_change=lambda: on_change_callback("tipo_documento", "widget_tipo_documento_radio")
-        )
+    st.radio(
+        "Tipo de Documento", 
+        ["CPF", "CNPJ"], 
+        horizontal=True, 
+        key="widget_tipo_documento_radio",
+        on_change=lambda: on_change_callback("tipo_documento", "widget_tipo_documento_radio")
+    )
 
-    # CNPJ Search input
-    if st.session_state.form_data['tipo_documento'] == "CNPJ":
+    if st.session_state.widget_tipo_documento_radio == "CNPJ":
         with st.container():
             col_cnpj_input, col_cnpj_btn = st.columns([0.7, 0.3])
             with col_cnpj_input:
                 st.text_input(
                     "CNPJ para busca", 
-                    key="widget_cnpj_search_input", 
-                    label_visibility="collapsed", 
-                    placeholder="Digite o CNPJ para buscar dados", 
-                    value=st.session_state.widget_cnpj_search_input
+                    key="widget_cnpj_search_input",
+                    placeholder="Digite um CNPJ para buscar e preencher os dados"
                 )
             with col_cnpj_btn:
                 if st.button("🔎 Buscar CNPJ", use_container_width=True):
@@ -219,10 +199,7 @@ with st.container(border=True):
                             cnpj_data = services.fetch_cnpj_data(cnpj_to_search)
                         
                         st.toast("Dados do CNPJ preenchidos com sucesso!", icon="✅")
-                        # Atualiza o dicionário principal com os novos dados
                         st.session_state.form_data.update(cnpj_data)
-                        
-                        # O campo 'documento' é populado com o CNPJ retornado
                         st.session_state.form_data['documento'] = cnpj_data.get('cnpj', '')
 
                         # Propaga os dados para os widgets individuais para refletir na UI
@@ -250,16 +227,15 @@ with st.container(border=True):
                     st.rerun()
         st.markdown("---")
     
-        st.text_input(
-            'Nome Completo / Razão Social *',
-            key="widget_nome_completo_input",
-            on_change=lambda: on_change_callback("nome_completo", "widget_nome_completo_input")
-        )
-    label_documento = "CPF *" if st.session_state.form_data['tipo_documento'] == "CPF" else "CNPJ *"
+    st.text_input(
+        'Nome Completo / Razão Social *',
+        key="widget_nome_completo_input",
+        on_change=lambda: on_change_callback("nome_completo", "widget_nome_completo_input")
+    )
+    label_documento = "CPF *" if st.session_state.widget_tipo_documento_radio == "CPF" else "CNPJ *"
     st.text_input(
         label_documento, 
         key="widget_documento_input", 
-        value=st.session_state.widget_documento_input,
         on_change=lambda: on_change_callback("documento", "widget_documento_input")
     )
     
@@ -268,17 +244,15 @@ with st.container(border=True):
         st.text_input(
             'E-mail', 
             key="widget_email_input", 
-            value=st.session_state.widget_email_input,
             on_change=lambda: on_change_callback("email", "widget_email_input")
         )
     with col_tel1_main: 
         st.text_input(
             'Telefone 1', 
             key="widget_telefone1_input", 
-            value=st.session_state.widget_telefone1_input,
             on_change=lambda: on_change_callback("telefone1", "widget_telefone1_input")
         )
-        if WHATSAPP_ICON and st.session_state.widget_telefone1_input: # Use widget state for display
+        if WHATSAPP_ICON and st.session_state.widget_telefone1_input:
             whatsapp_link_1 = validators.get_whatsapp_url(validators.unformat_whatsapp(st.session_state.widget_telefone1_input))
             st.markdown(f'<div style="text-align: right;"><a href="{whatsapp_link_1}" target="_blank"><img src="data:image/png;base64,{WHATSAPP_ICON}" width="25"></a></div>', unsafe_allow_html=True)
 
@@ -291,7 +265,6 @@ with st.container(border=True):
     
     st.date_input(
         'Data de Nascimento / Fundação', 
-        value=st.session_state.form_data['data_nascimento'], # Reads from form_data
         min_value=datetime.date(1900, 1, 1), 
         key="widget_data_nascimento_input",
         on_change=lambda: on_change_callback("data_nascimento", "widget_data_nascimento_input")
@@ -300,27 +273,21 @@ with st.container(border=True):
     st.checkbox(
         "Usar nome do cliente como Contato 1", 
         key="widget_use_client_name_checkbox", 
-        value=st.session_state.form_data['use_client_name'], # Reads from form_data
-        on_change=lambda: on_change_callback("use_client_name", "widget_use_client_name_checkbox") # on_change will also trigger sync
+        on_change=lambda: on_change_callback("use_client_name", "widget_use_client_name_checkbox")
     )
     
-    # Logic for contato1 (reads from form_data, updated via checkbox callback)
-    contato1_value = st.session_state.form_data['contato1']
-    contato1_disabled = st.session_state.form_data['use_client_name']
+    contato1_disabled = st.session_state.form_data.get('use_client_name', False)
 
     st.text_input(
         "Nome do Contato 1", 
-        value=contato1_value, 
         key="widget_contato1_input", 
         disabled=contato1_disabled,
         on_change=lambda: on_change_callback("contato1", "widget_contato1_input")
     )
 
-
     st.text_input(
         "Cargo do Contato 1", 
         key="widget_cargo_input", 
-        value=st.session_state.form_data['cargo'],
         on_change=lambda: on_change_callback("cargo", "widget_cargo_input")
     )
     st.markdown("---")
@@ -328,13 +295,11 @@ with st.container(border=True):
     st.text_input(
         "Nome do Contato 2", 
         key="widget_contato2_input", 
-        value=st.session_state.form_data['contato2'],
         on_change=lambda: on_change_callback("contato2", "widget_contato2_input")
     )
     st.text_input(
         'Telefone 2', 
         key="widget_telefone2_input", 
-        value=st.session_state.form_data['telefone2'],
         on_change=lambda: on_change_callback("telefone2", "widget_telefone2_input")
     )
     if WHATSAPP_ICON and st.session_state.widget_telefone2_input:
@@ -350,7 +315,6 @@ with st.container(border=True):
     st.text_input(
         'CEP', 
         key="widget_cep_address_input", 
-        value=st.session_state.form_data['cep'],
         on_change=lambda: on_change_callback("cep", "widget_cep_address_input")
     )
 
@@ -359,14 +323,12 @@ with st.container(border=True):
         st.text_input(
             'Endereço', 
             key="widget_endereco_input", 
-            value=st.session_state.form_data['endereco'],
             on_change=lambda: on_change_callback("endereco", "widget_endereco_input")
         )
     with col_num:
         st.text_input(
             'Número', 
             key="widget_numero_input", 
-            value=st.session_state.form_data['numero'],
             on_change=lambda: on_change_callback("numero", "widget_numero_input")
         )
 
@@ -375,14 +337,12 @@ with st.container(border=True):
         st.text_input(
             'Bairro', 
             key="widget_bairro_input", 
-            value=st.session_state.form_data['bairro'],
             on_change=lambda: on_change_callback("bairro", "widget_bairro_input")
         )
     with col_comp:
         st.text_input(
             'Complemento', 
             key="widget_complemento_input", 
-            value=st.session_state.form_data['complemento'],
             on_change=lambda: on_change_callback("complemento", "widget_complemento_input")
         )
 
@@ -391,7 +351,6 @@ with st.container(border=True):
         st.text_input(
             'Cidade', 
             key="widget_cidade_input", 
-            value=st.session_state.form_data['cidade'],
             on_change=lambda: on_change_callback("cidade", "widget_cidade_input")
         )
     with col_estado:
@@ -399,7 +358,6 @@ with st.container(border=True):
             'UF', 
             max_chars=2, 
             key="widget_estado_input", 
-            value=st.session_state.form_data['estado'],
             on_change=lambda: on_change_callback("estado", "widget_estado_input")
         )
 
@@ -411,7 +369,6 @@ with st.container(border=True):
     st.subheader("Observações")
     st.text_area(
         "Observações", 
-        value=st.session_state.form_data['observacao'], 
         height=150, 
         max_chars=1000, 
         key="widget_observacao_input",
