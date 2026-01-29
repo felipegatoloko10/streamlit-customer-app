@@ -1,6 +1,8 @@
 import streamlit as st
 import requests
 import re
+import os
+import json
 
 class CnpjNotFoundError(Exception):
     """Exceção para CNPJ não encontrado na API."""
@@ -89,26 +91,37 @@ def send_new_customer_email(customer_data: dict, customer_id: int):
     from email.mime.text import MIMEText
     from email.mime.multipart import MIMEMultipart
 
-    # --- Verifica se os segredos para o e-mail estão configurados ---
-    required_secrets = ["name", "key", "app_base_url", "smtp_server", "smtp_port"]
-    if not all(k in st.secrets for k in required_secrets):
-        st.warning("As credenciais de e-mail ('name', 'key'), a URL base ('app_base_url') e as configurações de SMTP ('smtp_server', 'smtp_port') não foram configuradas nos Segredos do Streamlit. A notificação não será enviada.")
-        return
+    email_config = {}
+    config_file = 'email_config.json'
 
-    sender_email = st.secrets["name"]
-    password = st.secrets["key"]
-    app_base_url = st.secrets["app_base_url"]
-    smtp_server = st.secrets["smtp_server"]
-    smtp_port = st.secrets["smtp_port"]
-    receiver_email = sender_email # Envia o e-mail para si mesmo
+    # 1. Tenta carregar a configuração do arquivo JSON
+    if os.path.exists(config_file):
+        with open(config_file, 'r') as f:
+            email_config = json.load(f)
+    
+    # 2. Se não encontrou no JSON, tenta carregar dos segredos do Streamlit
+    if not email_config:
+        if all(k in st.secrets for k in ["name", "key", "smtp_server", "smtp_port"]):
+            email_config['sender_email'] = st.secrets["name"]
+            email_config['password'] = st.secrets["key"]
+            email_config['smtp_server'] = st.secrets["smtp_server"]
+            email_config['smtp_port'] = st.secrets["smtp_port"]
+    
+    # Pega a URL base de qualquer uma das fontes
+    app_base_url = email_config.get("app_base_url") or st.secrets.get("app_base_url", "http://localhost:8501") # Fallback para localhost
+
+    # 3. Verifica se tem as credenciais necessárias
+    required_keys = ['sender_email', 'password', 'smtp_server', 'smtp_port']
+    if not all(key in email_config for key in required_keys):
+        st.warning("As configurações de e-mail (remetente, senha, servidor, porta) não foram configuradas. A notificação não será enviada.")
+        return
 
     # --- Monta o corpo do e-mail ---
     message = MIMEMultipart("alternative")
     message["Subject"] = f"Novo Cliente Cadastrado: {customer_data.get('nome_completo')}"
-    message["From"] = sender_email
-    message["To"] = receiver_email
+    message["From"] = email_config['sender_email']
+    message["To"] = email_config['sender_email'] # Envia para si mesmo
 
-    # Constrói a URL do App com a base vinda dos secrets
     app_url = f"{app_base_url}/Banco_de_Dados?id={customer_id}"
 
     text_body = f"""
@@ -149,10 +162,10 @@ def send_new_customer_email(customer_data: dict, customer_id: int):
 
     # --- Envia o e-mail ---
     try:
-        with smtplib.SMTP(smtp_server, int(smtp_port)) as server:
+        with smtplib.SMTP(email_config['smtp_server'], int(email_config['smtp_port'])) as server:
             server.starttls()
-            server.login(sender_email, password)
-            server.sendmail(sender_email, receiver_email, message.as_string())
+            server.login(email_config['sender_email'], email_config['password'])
+            server.sendmail(email_config['sender_email'], email_config['sender_email'], message.as_string())
         st.toast("📧 E-mail de notificação enviado com sucesso!")
     except Exception as e:
         # Não trava a aplicação se o e-mail falhar, apenas avisa.
