@@ -87,8 +87,7 @@ def _validate_row(row: pd.Series):
             raise validators.ValidationError("O campo 'CNPJ' é obrigatório.")
         validators.is_valid_cnpj(row['cnpj'])
     
-    # As funções de validação já lidam com valores vazios,
-    # mas a verificação explícita aqui evita chamadas desnecessárias.
+    # Se os campos de email/telefone forem preenchidos, seu formato deve ser válido.
     if row.get('telefone1'):
         validators.is_valid_whatsapp(row['telefone1'])
     if row.get('telefone2'):
