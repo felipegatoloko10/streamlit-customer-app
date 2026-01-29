@@ -3,6 +3,8 @@ import pandas as pd
 import database as db
 import altair as alt
 import datetime
+import json
+import os
 
 # --- Page and Helper Function Configuration ---
 
@@ -170,3 +172,73 @@ else:
     if st.button("Limpar Cache e Atualizar Dados"):
         st.cache_data.clear()
         st.rerun()
+
+st.markdown("---")
+
+# --- Seção de Configurações de E-mail ---
+with st.expander("⚙️ Configurações de E-mail para Notificações"):
+    
+    config_file = 'email_config.json'
+
+    # Função para carregar as configurações
+    def load_email_config():
+        if os.path.exists(config_file):
+            with open(config_file, 'r') as f:
+                return json.load(f)
+        return {}
+
+    # Função para salvar as configurações
+    def save_email_config(config):
+        with open(config_file, 'w') as f:
+            json.dump(config, f, indent=4)
+
+    email_config = load_email_config()
+
+    st.info("Preencha para receber notificações por e-mail a cada novo cliente cadastrado. As configurações são salvas localmente e não são enviadas para o GitHub.")
+    
+    with st.form("email_config_form", clear_on_submit=False):
+        st.write("##### Credenciais de Envio")
+        sender_email = st.text_input(
+            "E-mail do Remetente", 
+            value=email_config.get("sender_email", ""),
+            help="O e-mail que enviará as notificações."
+        )
+        password = st.text_input(
+            "Senha de App", 
+            type="password",
+            value=email_config.get("password", ""),
+            help="Use a 'Senha de App' gerada pelo seu provedor (ex: Google), não sua senha principal."
+        )
+        
+        st.write("##### Configurações do Servidor")
+        smtp_server = st.text_input(
+            "Servidor SMTP", 
+            value=email_config.get("smtp_server", "smtp.gmail.com"),
+            help="Ex: smtp.gmail.com, smtp.outlook.com"
+        )
+        smtp_port = st.number_input(
+            "Porta SMTP", 
+            value=email_config.get("smtp_port", 587),
+            min_value=1,
+            max_value=65535
+        )
+        
+        st.write("##### Configurações da Aplicação")
+        app_base_url = st.text_input(
+            "URL Base da Aplicação",
+            value=email_config.get("app_base_url", "http://localhost:8501"),
+            help="A URL para os links no e-mail. Use o endereço local ou o da aplicação em produção."
+        )
+
+        submitted = st.form_submit_button("Salvar Configurações de E-mail")
+
+        if submitted:
+            new_config = {
+                "sender_email": sender_email,
+                "password": password,
+                "smtp_server": smtp_server,
+                "smtp_port": smtp_port,
+                "app_base_url": app_base_url
+            }
+            save_email_config(new_config)
+            st.success("Configurações de e-mail salvas com sucesso!")
