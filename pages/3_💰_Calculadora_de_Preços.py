@@ -27,18 +27,14 @@ def clear_calculator_state():
     """Reseta o estado da calculadora para os valores padrão."""
     for key, value in DEFAULT_CALC_INPUTS.items():
         st.session_state[key] = value
-    # Garante que os expanders fechem ao limpar
-    st.session_state.expand_impressao = False
-    st.session_state.expand_fatores = False
     if 'calc_results' in st.session_state:
         del st.session_state.calc_results
 
 def load_preset_into_state(preset_values):
     """Carrega os valores de uma predefinição no estado da sessão."""
     for key, value in preset_values.items():
-        if key in st.session_state and 'expand_' not in key: # Não carrega estados de expander
+        if key in st.session_state and 'expand_' not in key:
             st.session_state[key] = value
-    # Expande tudo ao carregar um preset
     st.session_state.expand_impressao = True
     st.session_state.expand_fatores = True
     if 'calc_results' in st.session_state:
@@ -48,7 +44,11 @@ def expand_section(section_name):
     """Callback para expandir uma seção."""
     st.session_state[f"expand_{section_name}"] = True
 
-# --- Inicialização ---
+# --- Gerenciamento de Estado ---
+if st.session_state.get("clear_calculator_flag", False):
+    clear_calculator_state()
+    st.session_state.clear_calculator_flag = False
+
 initialize_calculator_state()
 
 # --- Gerenciamento de Predefinições ---
@@ -175,16 +175,18 @@ with st.expander("Passo 3: Fatores de Negócio e Risco", expanded=st.session_sta
     c1.number_input("Taxa de urgência (%)", min_value=0.0, max_value=200.0, step=5.0, key='urgency_fee_percent')
     c2.number_input("Margem de lucro (%)", min_value=0.0, step=5.0, key='profit_margin_percent')
     
-st.button("Calcular Preço", type="primary", use_container_width=True, key="calculate_button")
+# Botões de Ação fora do formulário
+col1, col2 = st.columns(2)
+with col1:
+    if st.button("Calcular Preço", type="primary", use_container_width=True):
+        current_inputs = {key: st.session_state[key] for key in DEFAULT_CALC_INPUTS}
+        st.session_state.calc_results = calculate_costs(current_inputs)
+with col2:
+    if st.button("🧹 Limpar Formulário", use_container_width=True):
+        st.session_state.clear_calculator_flag = True
+        st.rerun()
 
-if st.session_state.get("calculate_button"):
-    current_inputs = {key: st.session_state[key] for key in DEFAULT_CALC_INPUTS}
-    st.session_state.calc_results = calculate_costs(current_inputs)
-
-if st.button("🧹 Limpar Formulário", use_container_width=True):
-    clear_calculator_state()
-    st.rerun()
-
+# Seção de Resultados
 if 'calc_results' in st.session_state:
     results = st.session_state.calc_results
     final_price = results["Preço de Venda Final"]
