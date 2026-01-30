@@ -3,7 +3,7 @@ import json
 import os
 from streamlit_modal import Modal
 
-# Define os valores padrão para a calculadora
+# --- Definições de Estado e Padrões ---
 DEFAULT_CALC_INPUTS = {
     'design_hours': 0.0, 'design_rate': 100.0, 'slice_hours': 0.0, 'slice_rate': 40.0,
     'assembly_hours': 0.0, 'assembly_rate': 30.0, 'post_process_h': 0.0, 'labor_rate_h': 30.0,
