@@ -3,3 +3,6 @@ pandas
 validate-docbr
 email_validator
 streamlit-modal
+google-api-python-client
+google-auth-httplib2
+google-auth-oauthlib

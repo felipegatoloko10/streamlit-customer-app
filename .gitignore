@@ -5,6 +5,8 @@ temp_upload_*.db
 
 # Local config files
 email_config.json
+token.pickle # Google Drive API token
+backup_counter.json # Backup counter for Google Drive
 
 # Python cache
 __pycache__/
