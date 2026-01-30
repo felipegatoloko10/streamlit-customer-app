@@ -69,4 +69,4 @@ def trigger_manual_backup():
     """Dispara um backup manual para o Google Drive."""
     st.info("Iniciando backup manual para o Google Drive...")
     _perform_gdrive_backup()
-    st.rerun() # Atualiza a UI após o backup manual
+    # st.rerun() # Removido para permitir que a UI de autenticação do Google Drive seja exibida
