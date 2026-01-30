@@ -4,6 +4,7 @@ import streamlit as st
 import logging
 import validators
 import services
+import backup_manager
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -137,6 +138,12 @@ def insert_customer(data: dict):
         except Exception as e:
             logging.error(f"Falha ao enviar e-mail de notificação para o cliente ID {new_customer_id}: {e}")
         
+        # Incrementa o contador de backup e verifica se é hora de fazer o upload para o Google Drive
+        try:
+            backup_manager.increment_and_check_backup()
+        except Exception as e:
+            logging.error(f"Erro ao tentar verificar/realizar backup automático: {e}")
+
     except sqlite3.IntegrityError as e:
         logging.warning(f"Tentativa de inserir CPF/CNPJ duplicado para '{clean_data.get('nome_completo')}'.")
         raise DuplicateEntryError("O CPF ou CNPJ informado já existe no banco de dados.") from e
