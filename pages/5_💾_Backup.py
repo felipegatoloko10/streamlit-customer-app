@@ -4,6 +4,8 @@ import shutil
 import datetime
 from streamlit_modal import Modal
 import sqlite3
+import google_drive_service
+import backup_manager
 
 st.set_page_config(
     page_title="Backup e Restauração",
@@ -13,27 +15,21 @@ st.set_page_config(
 def is_valid_db_file(file_path: str) -> bool:
     """Verifica se um arquivo é um banco de dados SQLite3 válido."""
     try:
-        # Conecta em modo somente leitura para segurança
         conn = sqlite3.connect(f'file:{file_path}?mode=ro', uri=True)
         cursor = conn.cursor()
-        # Executa uma verificação de integridade
         cursor.execute("PRAGMA integrity_check;")
         result = cursor.fetchone()
         conn.close()
-        # O resultado esperado para um banco de dados íntegro é 'ok'
         return result and result[0] == 'ok'
     except sqlite3.Error:
-        # Se ocorrer qualquer erro de SQLite, o arquivo é inválido
         return False
 
-
 st.title("💾 Backup e Restauração de Dados")
-
 st.info("Esta seção permite que você salve (backup) e recupere (restaure) o banco de dados de clientes.")
 
 DB_FILE = 'customers.db'
 
-# --- Seção de Backup ---
+# --- Seção 1. Criar e Baixar um Backup ---
 st.header("1. Criar e Baixar um Backup")
 st.write(f"Clique no botão abaixo para baixar uma cópia de segurança do seu banco de dados atual (`{DB_FILE}`).")
 
@@ -54,14 +50,12 @@ except FileNotFoundError:
 except Exception as e:
     st.error(f"Ocorreu um erro inesperado ao preparar o backup para download: {e}")
 
-
 st.markdown("---")
 
-# --- Seção de Restauração ---
+# --- Seção 2. Restaurar a partir de um Backup ---
 st.header("2. Restaurar a partir de um Backup")
 st.write(f"Selecione um arquivo de backup (.db) para restaurar a base de dados. **Atenção: esta ação substituirá todos os dados atuais!**")
 
-# Variáveis de estado para gerenciar o arquivo e sua validade
 if 'temp_uploaded_filepath' not in st.session_state:
     st.session_state.temp_uploaded_filepath = None
 if 'is_uploaded_file_valid' not in st.session_state:
@@ -71,14 +65,11 @@ if 'uploaded_filename' not in st.session_state:
 
 uploaded_file = st.file_uploader("Escolha um arquivo de backup (.db)", type=['db'], key="backup_uploader")
 
-# Detectar se um novo arquivo foi carregado ou se o uploader foi limpo
 if uploaded_file is not None and uploaded_file.name != st.session_state.uploaded_filename:
-    # Um novo arquivo foi carregado - limpar arquivo anterior se houver
     if st.session_state.temp_uploaded_filepath and os.path.exists(st.session_state.temp_uploaded_filepath):
         os.remove(st.session_state.temp_uploaded_filepath)
 
     st.session_state.uploaded_filename = uploaded_file.name
-    # Usar um path seguro no diretório do script
     temp_path = os.path.join(os.path.dirname(__file__), f"temp_uploaded_{uploaded_file.name}")
     with open(temp_path, "wb") as f:
         f.write(uploaded_file.getbuffer())
@@ -91,18 +82,16 @@ if uploaded_file is not None and uploaded_file.name != st.session_state.uploaded
     else:
         st.session_state.is_uploaded_file_valid = False
         st.error(f"O arquivo '{uploaded_file.name}' não parece ser um banco de dados SQLite válido ou está corrompido. Por favor, tente outro arquivo.")
-        os.remove(temp_path) # Remover arquivo inválido
+        os.remove(temp_path)
         st.session_state.temp_uploaded_filepath = None
-        st.session_state.uploaded_filename = None # Resetar para permitir novo upload
+        st.session_state.uploaded_filename = None
 elif uploaded_file is None and st.session_state.uploaded_filename is not None:
-    # O uploader foi limpo pelo usuário (ou por uma ação interna)
     if st.session_state.temp_uploaded_filepath and os.path.exists(st.session_state.temp_uploaded_filepath):
         os.remove(st.session_state.temp_uploaded_filepath)
     st.session_state.temp_uploaded_filepath = None
     st.session_state.is_uploaded_file_valid = False
     st.session_state.uploaded_filename = None
 
-# Agora, o restante da UI depende do estado atual
 if st.session_state.is_uploaded_file_valid and st.session_state.temp_uploaded_filepath:
     st.warning(f"""
     **Você está prestes a substituir o banco de dados atual pelos dados do arquivo '{st.session_state.uploaded_filename}'.**
@@ -131,20 +120,16 @@ if st.session_state.is_uploaded_file_valid and st.session_state.temp_uploaded_fi
             with col1:
                 if st.button("Sim, Restaurar Agora", type="primary"):
                     try:
-                        # 1. Backup de segurança
                         if os.path.exists(DB_FILE):
                             timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
                             pre_restore_backup_filename = f"pre-restore-backup_{timestamp}.db"
                             shutil.copy(DB_FILE, pre_restore_backup_filename)
                             st.info(f"Backup de segurança criado: `{pre_restore_backup_filename}`")
 
-                        # 2. Mover o arquivo temporário validado para o local do DB_FILE
                         shutil.move(st.session_state.temp_uploaded_filepath, DB_FILE)
-                        st.session_state.temp_uploaded_filepath = None # Limpar o path do temporário
+                        st.session_state.temp_uploaded_filepath = None
 
                         st.success("Banco de dados restaurado com sucesso! O aplicativo será reiniciado.")
-                        
-                        # 3. Limpar caches
                         st.cache_resource.clear()
                         st.cache_data.clear()
                         
@@ -157,10 +142,31 @@ if st.session_state.is_uploaded_file_valid and st.session_state.temp_uploaded_fi
 
             with col2:
                 if st.button("Cancelar"):
-                    # Se cancelar, limpar o arquivo temporário e resetar o estado
                     if st.session_state.temp_uploaded_filepath and os.path.exists(st.session_state.temp_uploaded_filepath):
                         os.remove(st.session_state.temp_uploaded_filepath)
                     st.session_state.temp_uploaded_filepath = None
                     st.session_state.is_uploaded_file_valid = False
                     st.session_state.uploaded_filename = None
                     restore_modal.close()
+
+st.markdown("---")
+
+# --- Seção 3. Backup em Nuvem (Google Drive) ---
+st.header("3. Backup em Nuvem (Google Drive)")
+st.write("Configure e gerencie o backup automático do banco de dados para o seu Google Drive.")
+
+authenticated_email = google_drive_service.get_authenticated_user_email()
+
+if authenticated_email:
+    st.success(f"Conectado ao Google Drive como: **{authenticated_email}**")
+    if st.button("Desconectar / Trocar Conta Google Drive"):
+        google_drive_service.disconnect_drive_account()
+    st.markdown("---")
+    st.write("O backup automático será feito a cada 5 novos clientes cadastrados. Você também pode forçar um backup agora:")
+    if st.button("Forçar Backup Agora para o Google Drive", type="primary"):
+        backup_manager.trigger_manual_backup()
+else:
+    st.warning("Nenhuma conta Google Drive conectada. O backup automático será iniciado e pedirá sua autenticação na próxima vez que o backup automático for acionado.")
+    st.info("Para conectar, clique no botão 'Forçar Backup Agora para o Google Drive'.")
+    if st.button("Forçar Backup Agora para o Google Drive", type="primary", key="connect_gdrive_button_bottom"):
+        backup_manager.trigger_manual_backup()
