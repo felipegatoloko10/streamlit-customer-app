@@ -3,7 +3,7 @@ import json
 import os
 from streamlit_modal import Modal
 
-# --- Definições de Estado e Padrões ---
+# Define os valores padrão para a calculadora
 DEFAULT_CALC_INPUTS = {
     'design_hours': 0.0, 'design_rate': 100.0, 'slice_hours': 0.0, 'slice_rate': 40.0,
     'assembly_hours': 0.0, 'assembly_rate': 30.0, 'post_process_h': 0.0, 'labor_rate_h': 30.0,
@@ -27,14 +27,18 @@ def clear_calculator_state():
     """Reseta o estado da calculadora para os valores padrão."""
     for key, value in DEFAULT_CALC_INPUTS.items():
         st.session_state[key] = value
+    # Garante que os expanders fechem ao limpar
+    st.session_state.expand_impressao = False
+    st.session_state.expand_fatores = False
     if 'calc_results' in st.session_state:
         del st.session_state.calc_results
 
 def load_preset_into_state(preset_values):
     """Carrega os valores de uma predefinição no estado da sessão."""
     for key, value in preset_values.items():
-        if key in st.session_state and 'expand_' not in key:
+        if key in st.session_state and 'expand_' not in key: # Não carrega estados de expander
             st.session_state[key] = value
+    # Expande tudo ao carregar um preset
     st.session_state.expand_impressao = True
     st.session_state.expand_fatores = True
     if 'calc_results' in st.session_state:
@@ -176,17 +180,14 @@ with st.expander("Passo 3: Fatores de Negócio e Risco", expanded=st.session_sta
     c2.number_input("Margem de lucro (%)", min_value=0.0, step=5.0, key='profit_margin_percent')
     
 # Botões de Ação fora do formulário
-col1, col2 = st.columns(2)
-with col1:
-    if st.button("Calcular Preço", type="primary", use_container_width=True):
-        current_inputs = {key: st.session_state[key] for key in DEFAULT_CALC_INPUTS}
-        st.session_state.calc_results = calculate_costs(current_inputs)
-with col2:
-    if st.button("🧹 Limpar Formulário", use_container_width=True):
-        st.session_state.clear_calculator_flag = True
-        st.rerun()
+if st.button("Calcular Preço", type="primary", use_container_width=True, key="calculate_button"):
+    current_inputs = {key: st.session_state[key] for key in DEFAULT_CALC_INPUTS}
+    st.session_state.calc_results = calculate_costs(current_inputs)
 
-# Seção de Resultados
+if st.button("🧹 Limpar Formulário", use_container_width=True, key="clear_form_button"):
+    st.session_state.clear_calculator_flag = True
+    st.rerun()
+
 if 'calc_results' in st.session_state:
     results = st.session_state.calc_results
     final_price = results["Preço de Venda Final"]
