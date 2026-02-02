@@ -6,15 +6,18 @@ import shutil
 import time
 
 BACKUP_COUNTER_FILE = "backup_counter.json"
-NEW_CUSTOMER_THRESHOLD = 5
-DB_FILE = "customers.db" # Referência ao arquivo do banco de dados principal
-DRIVE_BACKUP_FILE_NAME = "customers_backup.db" # Nome fixo para o arquivo no Google Drive
+BACKUP_CONFIG_FILE = "backup_config.json"
+DB_FILE = "customers.db"
+DRIVE_BACKUP_FILE_NAME = "customers_backup.db"
 
 def load_counter():
     """Carrega o contador de clientes para backup automático."""
     if os.path.exists(BACKUP_COUNTER_FILE):
-        with open(BACKUP_COUNTER_FILE, 'r') as f:
-            return json.load(f).get("count", 0)
+        try:
+            with open(BACKUP_COUNTER_FILE, 'r') as f:
+                return json.load(f).get("count", 0)
+        except (IOError, json.JSONDecodeError):
+            return 0
     return 0
 
 def save_counter(count):
@@ -22,21 +25,33 @@ def save_counter(count):
     with open(BACKUP_COUNTER_FILE, 'w') as f:
         json.dump({"count": count}, f, indent=4)
 
+def load_backup_threshold():
+    """Carrega o limite de clientes para o backup automático."""
+    if os.path.exists(BACKUP_CONFIG_FILE):
+        try:
+            with open(BACKUP_CONFIG_FILE, 'r') as f:
+                return json.load(f).get("threshold", 5) # Padrão 5 se a chave não existir
+        except (IOError, json.JSONDecodeError):
+            return 5
+    return 5 # Padrão 5 se o arquivo não existir
+
+def save_backup_config(threshold):
+    """Salva a configuração de frequência do backup automático."""
+    with open(BACKUP_CONFIG_FILE, 'w') as f:
+        json.dump({"threshold": threshold}, f)
+
 def _perform_gdrive_backup():
     """Função interna para realizar o backup para o Google Drive."""
-    # 1. Cria uma cópia temporária do DB para upload
+    if not os.path.exists(DB_FILE):
+        st.error(f"Erro ao criar backup: arquivo do banco de dados ('{DB_FILE}') não encontrado.")
+        return False
+        
     temp_db_path = f"temp_{DRIVE_BACKUP_FILE_NAME}"
     try:
         shutil.copy(DB_FILE, temp_db_path)
-    except FileNotFoundError:
-        st.error(f"Erro ao criar backup: arquivo '{DB_FILE}' não encontrado.")
-        return False # Indica falha
-
-    try:
-        # 2. Envia para o Google Drive (sobrescreve se existir)
         google_drive_service.upload_file_to_drive(temp_db_path, DRIVE_BACKUP_FILE_NAME)
-        st.success("Backup do banco de dados enviado para o Google Drive com sucesso!")
-        return True # Indica sucesso
+        st.toast("Backup para o Google Drive concluído com sucesso!", icon="✅")
+        return True
     except google_drive_service.GoogleDriveServiceError as e:
         st.error(f"Erro no backup para o Google Drive: {e}")
         return False
@@ -44,7 +59,6 @@ def _perform_gdrive_backup():
         st.error(f"Ocorreu um erro inesperado durante o backup: {e}")
         return False
     finally:
-        # 3. Limpa o arquivo temporário
         if os.path.exists(temp_db_path):
             os.remove(temp_db_path)
 
@@ -56,17 +70,19 @@ def increment_and_check_backup():
     current_count = load_counter()
     current_count += 1
     save_counter(current_count)
+    
+    threshold = load_backup_threshold()
 
-    if current_count >= NEW_CUSTOMER_THRESHOLD:
-        st.info(f"Contador de clientes atingiu {NEW_CUSTOMER_THRESHOLD}. Iniciando backup automático para o Google Drive...")
+    if current_count >= threshold:
+        st.toast(f"Gatilho de backup automático atingido ({threshold} clientes). Iniciando...", icon="☁️")
+        time.sleep(2)
         if _perform_gdrive_backup():
-            save_counter(0) # Reseta o contador apenas se o backup foi bem-sucedido
+            save_counter(0)
         else:
-            st.warning("Backup automático falhou, o contador não foi resetado. Tente novamente.")
+            st.warning("Backup automático falhou. O contador não foi resetado.")
     return current_count
 
 def trigger_manual_backup():
     """Dispara um backup manual para o Google Drive."""
-    st.info("Iniciando backup manual para o Google Drive...")
-    _perform_gdrive_backup()
-    # st.rerun() # Removido para permitir que a UI de autenticação do Google Drive seja exibida
+    with st.spinner("Iniciando backup manual para o Google Drive..."):
+        _perform_gdrive_backup()

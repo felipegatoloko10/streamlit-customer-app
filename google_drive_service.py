@@ -1,26 +1,21 @@
 import os
 import pickle
-import google.oauth2.credentials
-import google_auth_oauthlib.flow
+from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
-import googleapiclient.discovery
-import googleapiclient.errors
-import streamlit as st
+from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
+from googleapiclient.http import MediaFileUpload
 
-# Escopos e nomes de arquivo
 SCOPES = ['https://www.googleapis.com/auth/drive.file']
 TOKEN_FILE = 'token.pickle'
 CREDENTIALS_FILE = 'credentials.json'
 
 class GoogleDriveServiceError(Exception):
-    """Exceção base para erros do serviço Google Drive."""
     pass
 
-def _get_credentials():
-    """
-    Função interna para carregar credenciais existentes do token.pickle.
-    Tenta atualizar se estiverem expiradas. Retorna None se não forem válidas.
-    """
+def get_credentials():
+    """Carrega credenciais existentes e as atualiza se necessário."""
     creds = None
     if os.path.exists(TOKEN_FILE):
         try:
@@ -28,8 +23,7 @@ def _get_credentials():
                 creds = pickle.load(token)
         except (EOFError, pickle.UnpicklingError):
             creds = None
-            if os.path.exists(TOKEN_FILE):
-                os.remove(TOKEN_FILE)
+            if os.path.exists(TOKEN_FILE): os.remove(TOKEN_FILE)
     
     if creds and creds.expired and creds.refresh_token:
         try:
@@ -37,109 +31,72 @@ def _get_credentials():
             with open(TOKEN_FILE, 'wb') as token:
                 pickle.dump(creds, token)
         except Exception:
-            if os.path.exists(TOKEN_FILE):
-                os.remove(TOKEN_FILE)
+            if os.path.exists(TOKEN_FILE): os.remove(TOKEN_FILE)
             return None
             
     if creds and creds.valid:
         return creds
     return None
 
-def initiate_authentication():
-    """
-    Inicia o fluxo de autenticação interativo para o usuário.
-    Esta função deve ser chamada por um botão na UI.
-    """
+def get_auth_flow():
+    """Cria e retorna um objeto de fluxo de autenticação."""
     if not os.path.exists(CREDENTIALS_FILE):
-        st.error(f"Arquivo '{CREDENTIALS_FILE}' não encontrado. Por favor, faça o upload dele na seção de configuração.")
-        return
+        raise FileNotFoundError(f"Arquivo '{CREDENTIALS_FILE}' não encontrado.")
+    flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_FILE, SCOPES, redirect_uri='urn:ietf:wg:oauth:2.0:oob')
+    return flow
 
-    try:
-        flow = google_auth_oauthlib.flow.InstalledAppFlow.from_client_secrets_file(
-            CREDENTIALS_FILE, SCOPES, redirect_uri='urn:ietf:wg:oauth:2.0:oob')
-        auth_url, _ = flow.authorization_url(prompt='consent')
-        
-        st.info("Siga os passos para autorizar o acesso ao Google Drive:")
-        st.markdown(f"1. **[Clique aqui para abrir a página de autorização do Google]({auth_url})**", unsafe_allow_html=True)
-        st.write("2. Conceda as permissões e copie o código de autorização gerado.")
-        
-        col1, col2 = st.columns([0.7, 0.3])
-        with col1:
-            auth_code = st.text_input("3. Cole o código de autorização aqui:", key="gdrive_auth_code_input", label_visibility="collapsed")
-        with col2:
-            st.markdown("<br/>", unsafe_allow_html=True)
-            if st.button("Confirmar Código", type="primary"):
-                if auth_code:
-                    with st.spinner("Verificando código..."):
-                        try:
-                            flow.fetch_token(code=auth_code)
-                            creds = flow.credentials
-                            with open(TOKEN_FILE, 'wb') as token:
-                                pickle.dump(creds, token)
-                            st.success("Autenticação concluída com sucesso!")
-                            st.info("A página será recarregada para aplicar a conexão.")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Erro ao verificar o código: {e}. Verifique se o código está correto e tente novamente.")
-                else:
-                    st.warning("Por favor, insira o código antes de confirmar.")
-    except Exception as e:
-        st.error(f"Ocorreu um erro durante a autenticação: {e}")
+def fetch_token_from_code(flow, auth_code):
+    """Busca o token de acesso usando o código de autorização e o salva."""
+    flow.fetch_token(code=auth_code)
+    creds = flow.credentials
+    with open(TOKEN_FILE, 'wb') as token:
+        pickle.dump(creds, token)
+    return creds
 
 def get_drive_service():
-    """
-    Retorna um objeto de serviço Google Drive API v3 se autenticado, senão None.
-    Não inicia o fluxo de autenticação interativo.
-    """
-    creds = _get_credentials()
+    """Retorna um objeto de serviço do Google Drive se autenticado, senão None."""
+    creds = get_credentials()
     if not creds:
         return None
     try:
-        return googleapiclient.discovery.build('drive', 'v3', credentials=creds)
-    except Exception as e:
-        raise GoogleDriveServiceError(f"Erro ao construir o serviço Google Drive: {e}")
+        return build('drive', 'v3', credentials=creds)
+    except HttpError as error:
+        raise GoogleDriveServiceError(f"Erro ao construir serviço do Drive: {error}")
 
 def get_authenticated_user_email():
-    """Retorna o email do usuário autenticado no Google Drive, ou None."""
-    creds = _get_credentials()
+    """Retorna o e-mail do usuário autenticado, ou None."""
+    creds = get_credentials()
     if not creds:
         return None
     try:
-        service = googleapiclient.discovery.build('oauth2', 'v2', credentials=creds)
+        service = build('oauth2', 'v2', credentials=creds)
         user_info = service.userinfo().get().execute()
         return user_info.get('email')
     except Exception:
-        if os.path.exists(TOKEN_FILE):
-            os.remove(TOKEN_FILE)
+        if os.path.exists(TOKEN_FILE): os.remove(TOKEN_FILE)
         return None
 
 def disconnect_drive_account():
-    """Deleta o arquivo de token, forçando uma re-autenticação na próxima vez."""
+    """Deleta o arquivo de token para forçar uma nova autenticação."""
     if os.path.exists(TOKEN_FILE):
         os.remove(TOKEN_FILE)
-    st.success("Conta Google Drive desconectada com sucesso!")
-    st.rerun()
 
 def upload_file_to_drive(local_file_path, drive_file_name):
-    """
-    Faz upload de um arquivo para o Google Drive, sobrescrevendo se já existir.
-    """
+    """Faz upload de um arquivo para o Google Drive, sobrescrevendo se já existir."""
     service = get_drive_service()
     if not service:
-        raise GoogleDriveServiceError("Não autenticado com o Google Drive. Conecte uma conta na página de Backup.")
-
-    response = service.files().list(q=f"name='{drive_file_name}' and trashed=false", spaces='drive', fields='files(id, name)').execute()
+        raise GoogleDriveServiceError("Não autenticado com o Google Drive.")
+    
+    response = service.files().list(q=f"name='{drive_file_name}' and trashed=false", spaces='drive', fields='files(id)').execute()
     items = response.get('files', [])
     file_id = items[0]['id'] if items else None
     
-    media_body = googleapiclient.http.MediaFileUpload(local_file_path, mimetype='application/octet-stream', resumable=True)
-
+    media_body = MediaFileUpload(local_file_path, mimetype='application/octet-stream', resumable=True)
+    
     if file_id:
-        request = service.files().update(fileId=file_id, media_body=media_body, fields='id')
+        request = service.files().update(fileId=file_id, media_body=media_body)
     else:
         file_metadata = {'name': drive_file_name}
         request = service.files().create(body=file_metadata, media_body=media_body, fields='id')
     
-    st.toast(f"Enviando backup '{drive_file_name}' para o Google Drive...")
-    response = request.execute()
-    return response.get('id') if response else file_id
+    request.execute()
