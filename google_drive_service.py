@@ -27,8 +27,9 @@ def _get_credentials():
             with open(TOKEN_FILE, 'rb') as token:
                 creds = pickle.load(token)
         except (EOFError, pickle.UnpicklingError):
-             # Se o arquivo de token estiver corrompido, trata como se não existisse
             creds = None
+            if os.path.exists(TOKEN_FILE):
+                os.remove(TOKEN_FILE)
     
     if creds and creds.expired and creds.refresh_token:
         try:
@@ -36,7 +37,6 @@ def _get_credentials():
             with open(TOKEN_FILE, 'wb') as token:
                 pickle.dump(creds, token)
         except Exception:
-            # Se a atualização falhar, remove o token inválido
             if os.path.exists(TOKEN_FILE):
                 os.remove(TOKEN_FILE)
             return None
@@ -51,30 +51,38 @@ def initiate_authentication():
     Esta função deve ser chamada por um botão na UI.
     """
     if not os.path.exists(CREDENTIALS_FILE):
-        st.error(f"Arquivo '{CREDENTIALS_FILE}' não encontrado. Siga as instruções para criá-lo e faça o upload.")
-        st.stop()
+        st.error(f"Arquivo '{CREDENTIALS_FILE}' não encontrado. Por favor, faça o upload dele na seção de configuração.")
+        return
 
     try:
         flow = google_auth_oauthlib.flow.InstalledAppFlow.from_client_secrets_file(
             CREDENTIALS_FILE, SCOPES, redirect_uri='urn:ietf:wg:oauth:2.0:oob')
         auth_url, _ = flow.authorization_url(prompt='consent')
         
-        st.info("Para autorizar o acesso ao Google Drive, siga os passos abaixo:")
+        st.info("Siga os passos para autorizar o acesso ao Google Drive:")
         st.markdown(f"1. **[Clique aqui para abrir a página de autorização do Google]({auth_url})**", unsafe_allow_html=True)
-        st.write("2. Faça login, conceda as permissões e copie o código de autorização gerado.")
+        st.write("2. Conceda as permissões e copie o código de autorização gerado.")
         
-        auth_code = st.text_input("3. Cole o código de autorização aqui e pressione Enter para confirmar:")
-        
-        if auth_code:
-            with st.spinner("Verificando código..."):
-                flow.fetch_token(code=auth_code)
-                creds = flow.credentials
-                with open(TOKEN_FILE, 'wb') as token:
-                    pickle.dump(creds, token)
-            st.success("Autenticação com Google Drive concluída com sucesso!")
-            st.info("A página será recarregada para aplicar a nova conexão.")
-            st.rerun()
-
+        col1, col2 = st.columns([0.7, 0.3])
+        with col1:
+            auth_code = st.text_input("3. Cole o código de autorização aqui:", key="gdrive_auth_code_input", label_visibility="collapsed")
+        with col2:
+            st.markdown("<br/>", unsafe_allow_html=True)
+            if st.button("Confirmar Código", type="primary"):
+                if auth_code:
+                    with st.spinner("Verificando código..."):
+                        try:
+                            flow.fetch_token(code=auth_code)
+                            creds = flow.credentials
+                            with open(TOKEN_FILE, 'wb') as token:
+                                pickle.dump(creds, token)
+                            st.success("Autenticação concluída com sucesso!")
+                            st.info("A página será recarregada para aplicar a conexão.")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Erro ao verificar o código: {e}. Verifique se o código está correto e tente novamente.")
+                else:
+                    st.warning("Por favor, insira o código antes de confirmar.")
     except Exception as e:
         st.error(f"Ocorreu um erro durante a autenticação: {e}")
 
@@ -87,8 +95,7 @@ def get_drive_service():
     if not creds:
         return None
     try:
-        service = googleapiclient.discovery.build('drive', 'v3', credentials=creds)
-        return service
+        return googleapiclient.discovery.build('drive', 'v3', credentials=creds)
     except Exception as e:
         raise GoogleDriveServiceError(f"Erro ao construir o serviço Google Drive: {e}")
 
@@ -102,6 +109,8 @@ def get_authenticated_user_email():
         user_info = service.userinfo().get().execute()
         return user_info.get('email')
     except Exception:
+        if os.path.exists(TOKEN_FILE):
+            os.remove(TOKEN_FILE)
         return None
 
 def disconnect_drive_account():
@@ -113,30 +122,24 @@ def disconnect_drive_account():
 
 def upload_file_to_drive(local_file_path, drive_file_name):
     """
-    Faz upload de um arquivo para o Google Drive.
-    Se o arquivo já existir, ele será sobrescrito.
+    Faz upload de um arquivo para o Google Drive, sobrescrevendo se já existir.
     """
     service = get_drive_service()
     if not service:
-        raise GoogleDriveServiceError("Não autenticado com o Google Drive. Por favor, conecte uma conta na página de Backup.")
+        raise GoogleDriveServiceError("Não autenticado com o Google Drive. Conecte uma conta na página de Backup.")
 
-    # Busca o arquivo pelo nome para ver se ele já existe
-    response = service.files().list(
-        q=f"name='{drive_file_name}' and trashed=false",
-        spaces='drive',
-        fields='nextPageToken, files(id, name)').execute()
-    
+    response = service.files().list(q=f"name='{drive_file_name}' and trashed=false", spaces='drive', fields='files(id, name)').execute()
     items = response.get('files', [])
     file_id = items[0]['id'] if items else None
-
+    
     media_body = googleapiclient.http.MediaFileUpload(local_file_path, mimetype='application/octet-stream', resumable=True)
 
     if file_id:
-        # Atualiza o arquivo existente
-        updated_file = service.files().update(fileId=file_id, media_body=media_body).execute()
-        return updated_file.get('id')
+        request = service.files().update(fileId=file_id, media_body=media_body, fields='id')
     else:
-        # Cria um novo arquivo
         file_metadata = {'name': drive_file_name}
-        uploaded_file = service.files().create(body=file_metadata, media_body=media_body, fields='id').execute()
-        return uploaded_file.get('id')
+        request = service.files().create(body=file_metadata, media_body=media_body, fields='id')
+    
+    st.toast(f"Enviando backup '{drive_file_name}' para o Google Drive...")
+    response = request.execute()
+    return response.get('id') if response else file_id

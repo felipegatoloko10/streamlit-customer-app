@@ -50,7 +50,6 @@ with st.expander("1. Backup e Restauração Local (Manual)", expanded=False):
     st.subheader("Restaurar a partir de um Backup Local")
     st.write(f"Selecione um arquivo de backup (.db) do seu computador. **Atenção: esta ação substituirá todos os dados atuais!**")
 
-    # A lógica de restauração local existente permanece aqui
     if 'temp_uploaded_filepath' not in st.session_state:
         st.session_state.temp_uploaded_filepath = None
     if 'is_uploaded_file_valid' not in st.session_state:
@@ -60,40 +59,43 @@ with st.expander("1. Backup e Restauração Local (Manual)", expanded=False):
 
     uploaded_file = st.file_uploader("Escolha um arquivo de backup (.db)", type=['db'], key="backup_uploader")
 
-    if uploaded_file is not None and uploaded_file.name != st.session_state.uploaded_filename:
-        # ... (código de validação do arquivo de restauração)
-        st.session_state.uploaded_filename = uploaded_file.name
-        temp_path = os.path.join(os.path.dirname(__file__), f"temp_uploaded_{uploaded_file.name}")
-        with open(temp_path, "wb") as f:
-            f.write(uploaded_file.getbuffer())
-        st.session_state.temp_uploaded_filepath = temp_path
-        if is_valid_db_file(temp_path):
-            st.session_state.is_uploaded_file_valid = True
-            st.success(f"Arquivo '{uploaded_file.name}' validado! Pronto para restauração.")
-        else:
-            st.session_state.is_uploaded_file_valid = False
-            st.error(f"O arquivo '{uploaded_file.name}' não é um banco de dados válido.")
-            os.remove(temp_path)
-            st.session_state.temp_uploaded_filepath = None
-            st.session_state.uploaded_filename = None
+    if uploaded_file is not None:
+        if uploaded_file.name != st.session_state.uploaded_filename: # Novo arquivo ou reset do uploader
+            if st.session_state.temp_uploaded_filepath and os.path.exists(st.session_state.temp_uploaded_filepath):
+                os.remove(st.session_state.temp_uploaded_filepath)
+
+            st.session_state.uploaded_filename = uploaded_file.name
+            temp_path = os.path.join(os.path.dirname(__file__), f"temp_uploaded_{uploaded_file.name}")
+            with open(temp_path, "wb") as f:
+                f.write(uploaded_file.getbuffer())
+            st.session_state.temp_uploaded_filepath = temp_path
+            
+            if is_valid_db_file(temp_path):
+                st.session_state.is_uploaded_file_valid = True
+                st.success(f"Arquivo '{uploaded_file.name}' validado! Pronto para restauração.")
+            else:
+                st.session_state.is_uploaded_file_valid = False
+                st.error(f"O arquivo '{uploaded_file.name}' não é um banco de dados válido.")
+                os.remove(temp_path)
+                st.session_state.temp_uploaded_filepath = None
+                st.session_state.uploaded_filename = None
     
+    elif uploaded_file is None and st.session_state.uploaded_filename is not None:
+        if st.session_state.temp_uploaded_filepath and os.path.exists(st.session_state.temp_uploaded_filepath):
+            os.remove(st.session_state.temp_uploaded_filepath)
+        st.session_state.temp_uploaded_filepath = None
+        st.session_state.is_uploaded_file_valid = False
+        st.session_state.uploaded_filename = None
+
+
     if st.session_state.is_uploaded_file_valid and st.session_state.temp_uploaded_filepath:
         st.warning(f"""
         **Você está prestes a substituir o banco de dados atual pelos dados do arquivo '{st.session_state.uploaded_filename}'.**
-        
-        Todos os clientes cadastrados desde a criação deste backup serão perdidos. 
-        
         Esta ação criará um backup de segurança do estado atual antes de restaurar, mas prossiga com cautela.
         """)
 
-        restore_modal = Modal(
-            "Confirmar Restauração",
-            key="restore_modal",
-            padding=20,
-            max_width=500
-        )
-
-        if st.button("Iniciar Processo de Restauração", type="primary"):
+        restore_modal = Modal("Confirmar Restauração", key="restore_modal", padding=20, max_width=500)
+        if st.button("Iniciar Processo de Restauração", type="primary", use_container_width=True):
             restore_modal.open()
 
         if restore_modal.is_open():
@@ -103,7 +105,7 @@ with st.expander("1. Backup e Restauração Local (Manual)", expanded=False):
                 
                 col1, col2 = st.columns(2)
                 with col1:
-                    if st.button("Sim, Restaurar Agora", type="primary"):
+                    if st.button("Sim, Restaurar Agora", type="primary", use_container_width=True):
                         try:
                             if os.path.exists(DB_FILE):
                                 timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -113,20 +115,16 @@ with st.expander("1. Backup e Restauração Local (Manual)", expanded=False):
 
                             shutil.move(st.session_state.temp_uploaded_filepath, DB_FILE)
                             st.session_state.temp_uploaded_filepath = None
-
                             st.success("Banco de dados restaurado com sucesso! O aplicativo será reiniciado.")
                             st.cache_resource.clear()
                             st.cache_data.clear()
-                            
                             restore_modal.close()
                             st.rerun()
-
                         except Exception as e:
                             st.error(f"Ocorreu um erro inesperado durante a restauração: {e}")
                             restore_modal.close()
-
                 with col2:
-                    if st.button("Cancelar"):
+                    if st.button("Cancelar", use_container_width=True):
                         if st.session_state.temp_uploaded_filepath and os.path.exists(st.session_state.temp_uploaded_filepath):
                             os.remove(st.session_state.temp_uploaded_filepath)
                         st.session_state.temp_uploaded_filepath = None
@@ -134,15 +132,23 @@ with st.expander("1. Backup e Restauração Local (Manual)", expanded=False):
                         st.session_state.uploaded_filename = None
                         restore_modal.close()
 
+st.markdown("---")
+
 # --- Seção 2: Backup em Nuvem (Google Drive) ---
 with st.expander("2. Backup em Nuvem (Google Drive)", expanded=True):
-    st.subheader("Status e Ações")
-
+    st.header("Gerenciamento de Backup na Nuvem")
+    
+    # Verifica se o arquivo credentials.json existe. É pré-requisito para tudo.
+    creds_exist = os.path.exists(google_drive_service.CREDENTIALS_FILE)
+    
     try:
-        authenticated_email = google_drive_service.get_authenticated_user_email()
+        authenticated_email = google_drive_service.get_authenticated_user_email() if creds_exist else None
 
         if authenticated_email:
             st.success(f"Conectado ao Google Drive como: **{authenticated_email}**")
+            st.write("O backup automático está **ativo** (a cada 5 novos clientes).")
+            st.markdown("---")
+            
             c1, c2 = st.columns(2)
             with c1:
                 if st.button("Forçar Backup para o Drive Agora", type="primary", use_container_width=True):
@@ -151,52 +157,64 @@ with st.expander("2. Backup em Nuvem (Google Drive)", expanded=True):
                 if st.button("Desconectar / Trocar Conta", use_container_width=True):
                     google_drive_service.disconnect_drive_account()
         else:
+            # UI para o processo de configuração e conexão
             st.warning("Nenhuma conta Google Drive conectada.")
-            if st.button("Conectar ao Google Drive", type="primary", use_container_width=True):
-                # A função abaixo irá mostrar os passos de autenticação na tela
-                google_drive_service.initiate_authentication()
-    
-    except google_drive_service.GoogleDriveServiceError as e:
-        st.error(f"Erro de Serviço: {e}")
-        st.info("Verifique se o arquivo 'credentials.json' está correto e tente novamente.")
+            st.markdown("---")
 
-# --- Seção 3: Configuração e Ajuda ---
-with st.expander("3. Como Configurar o Backup no Google Drive?"):
-    st.info("Para usar o backup em nuvem, você precisa de um arquivo de credenciais do Google.")
-
-    uploaded_creds = st.file_uploader("1. Faça o upload do seu arquivo `credentials.json` aqui:", type=['json'])
-    if uploaded_creds is not None:
-        try:
-            with open(google_drive_service.CREDENTIALS_FILE, "wb") as f:
-                f.write(uploaded_creds.getbuffer())
-            st.success(f"Arquivo `{uploaded_creds.name}` salvo como `{google_drive_service.CREDENTIALS_FILE}`! Agora você pode se conectar.")
-            # Desconecta a conta antiga para forçar o uso das novas credenciais
-            if os.path.exists(google_drive_service.TOKEN_FILE):
-                google_drive_service.disconnect_drive_account()
-            else:
+            st.subheader("Passo 1: Fazer upload do `credentials.json`")
+            st.info("Para usar o backup em nuvem, você precisa de um arquivo de credenciais do Google. Veja as instruções no expander no final desta página.")
+            uploaded_creds = st.file_uploader(
+                "Selecione o arquivo de credenciais (`credentials.json`) que você baixou do Google Cloud.",
+                type=['json']
+            )
+            if uploaded_creds is not None:
+                with open(google_drive_service.CREDENTIALS_FILE, "wb") as f:
+                    f.write(uploaded_creds.getbuffer())
+                st.success(f"Arquivo `{uploaded_creds.name}` salvo! Agora você pode se conectar no Passo 2.")
+                if os.path.exists(google_drive_service.TOKEN_FILE):
+                    os.remove(google_drive_service.TOKEN_FILE)
                 st.rerun()
 
-        except Exception as e:
-            st.error(f"Não foi possível salvar o arquivo de credenciais: {e}")
+            st.markdown("---")
+            st.subheader("Passo 2: Conectar ao Google Drive")
+            
+            # Habilita o botão apenas se o Passo 1 foi concluído
+            connect_button_disabled = not creds_exist
+            
+            if connect_button_disabled:
+                st.caption("O botão de conexão será habilitado após o upload do `credentials.json` no Passo 1.")
+            
+            if st.button("Conectar ao Google Drive", type="primary", use_container_width=True, disabled=connect_button_disabled, key="connect_gdrive_button"):
+                st.session_state.authentication_started = True
 
-    st.markdown("---")
-    st.subheader("2. Siga os passos abaixo para gerar o arquivo:")
+            # Se o usuário iniciou a autenticação, mostra a UI para colar o código
+            if st.session_state.get("authentication_started"):
+                google_drive_service.initiate_authentication()
+    
+    except Exception as e:
+        st.error(f"Ocorreu um erro ao gerenciar a conexão com o Google Drive: {e}")
+
+# --- Seção 3: Instruções de Configuração ---
+with st.expander("Como configurar o arquivo `credentials.json`?", expanded=False):
     st.markdown("""
     1.  **Acesse o Google Cloud Console:** [console.cloud.google.com](https://console.cloud.google.com/)
-    2.  **Crie um Novo Projeto:** Se não tiver um, clique em "Selecionar um projeto" e "NOVO PROJETO". Dê um nome (ex: "App Backup") e clique em "CRIAR".
-    3.  **Ative a API do Google Drive:** No menu de busca, procure por **"Google Drive API"** e clique em **"ATIVAR"**.
+    2.  **Crie um Novo Projeto:** No topo da página, clique em "Selecionar um projeto" > "NOVO PROJETO". Dê um nome (ex: `App Backup`) e clique em "CRIAR".
+    3.  **Ative a API do Google Drive:** Na barra de busca, procure por **"Google Drive API"** e clique em **"ATIVAR"**.
     4.  **Configure a Tela de Consentimento:**
-        *   No menu à esquerda, vá para "Tela de consentimento OAuth".
-        *   Escolha o tipo de usuário **"Externo"** e clique em "CRIAR".
-        *   Preencha o "Nome do app" (ex: "App Backup") e seu "E-mail de suporte do usuário".
+        *   No menu lateral, vá para "APIs e Serviços" > "Tela de consentimento OAuth".
+        *   Escolha **"Externo"** e clique em "CRIAR".
+        *   Preencha o "Nome do app" (ex: `App de Backup`) e seu "E-mail de suporte do usuário".
         *   Role até o fim e clique em "SALVAR E CONTINUAR" nas seções seguintes, não precisa adicionar mais nada.
-    5.  **Crie as Credenciais:**
-        *   No menu à esquerda, vá para **"Credenciais"**.
-        *   Clique em **"+ CRIAR CREDENCIAIS"** e escolha **"ID do cliente OAuth"**.
-        *   No campo "Tipo de aplicativo", selecione **"App para computador"**.
+    5.  **Adicione seu E-mail como Testador:**
+        *   Ainda na "Tela de consentimento OAuth", vá para a aba **"Usuários de teste"**.
+        *   Clique em **"+ ADICIONAR USUÁRIOS"**, digite seu próprio e-mail do Google e clique em "SALVAR".
+    6.  **Crie as Credenciais:**
+        *   No menu lateral, vá para **"Credenciais"**.
+        *   Clique em **"+ CRIAR CREDENCIAIS"** > **"ID do cliente OAuth"**.
+        *   Em "Tipo de aplicativo", selecione **"App para computador"**.
         *   Clique em **"CRIAR"**.
-    6.  **Baixe e Faça o Upload:**
+    7.  **Baixe o Arquivo:**
         *   Uma janela aparecerá. Clique no botão **"FAZER O DOWNLOAD DO JSON"**.
-        *   O arquivo baixado terá um nome longo. **Renomeie-o para `credentials.json`**.
-        *   Use o botão de upload acima para enviar este arquivo.
+        *   **Renomeie** o arquivo baixado para `credentials.json`.
+        *   Use o botão de upload no **Passo 1** acima para enviar este arquivo.
     """)
