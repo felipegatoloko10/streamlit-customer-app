@@ -47,11 +47,10 @@ def _get_credentials():
 
 def initiate_authentication():
     """
-    Inicia o fluxo de autenticação interativo para o usuário.
-    Esta função deve ser chamada por um botão na UI.
+    Inicia o fluxo de autenticação interativo para o usuário, mostrando a UI no Streamlit.
     """
     if not os.path.exists(CREDENTIALS_FILE):
-        st.error(f"Arquivo '{CREDENTIALS_FILE}' não encontrado. Por favor, faça o upload dele na seção de configuração.")
+        st.error(f"Arquivo '{CREDENTIALS_FILE}' não encontrado. Por favor, faça o upload dele no Passo 1.")
         return
 
     try:
@@ -61,9 +60,9 @@ def initiate_authentication():
         
         st.info("Siga os passos para autorizar o acesso ao Google Drive:")
         st.markdown(f"1. **[Clique aqui para abrir a página de autorização do Google]({auth_url})**", unsafe_allow_html=True)
-        st.write("2. Faça login, conceda as permissões e copie o código de autorização gerado.")
+        st.write("2. Conceda as permissões e copie o código de autorização gerado.")
         st.warning("Atenção: o código é de uso único e expira rapidamente. Se a autenticação falhar, pode ser necessário gerar um novo código clicando no link novamente.")
-        
+
         col1, col2 = st.columns([0.7, 0.3])
         with col1:
             auth_code = st.text_input("3. Cole o código de autorização aqui:", key="gdrive_auth_code_input", label_visibility="collapsed")
