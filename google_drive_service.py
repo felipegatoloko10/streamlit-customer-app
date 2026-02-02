@@ -47,42 +47,29 @@ def _get_credentials():
 
 def initiate_authentication():
     """
-    Inicia o fluxo de autenticação interativo para o usuário, mostrando a UI no Streamlit.
+    Inicia o fluxo de autenticação automático e interativo, abrindo uma aba
+    no navegador e rodando um servidor local temporário para receber a resposta.
     """
     if not os.path.exists(CREDENTIALS_FILE):
-        st.error(f"Arquivo '{CREDENTIALS_FILE}' não encontrado. Por favor, faça o upload dele no Passo 1.")
+        st.error(f"Arquivo '{CREDENTIALS_FILE}' não encontrado. Por favor, faça o upload dele na seção de configuração da página de Backup.")
         return
 
     try:
         flow = google_auth_oauthlib.flow.InstalledAppFlow.from_client_secrets_file(
-            CREDENTIALS_FILE, SCOPES, redirect_uri='urn:ietf:wg:oauth:2.0:oob')
-        auth_url, _ = flow.authorization_url(prompt='consent')
+            CREDENTIALS_FILE, SCOPES)
         
-        st.info("Siga os passos para autorizar o acesso ao Google Drive:")
-        st.markdown(f"1. **[Clique aqui para abrir a página de autorização do Google]({auth_url})**", unsafe_allow_html=True)
-        st.write("2. Conceda as permissões e copie o código de autorização gerado.")
-        st.warning("Atenção: o código é de uso único e expira rapidamente. Se a autenticação falhar, pode ser necessário gerar um novo código clicando no link novamente.")
+        # O run_local_server abre o navegador e captura a resposta automaticamente.
+        with st.spinner("Aguardando autorização do Google... Abra a aba do navegador que apareceu para continuar."):
+            creds = flow.run_local_server(port=0)
+        
+        # Salva as credenciais para a próxima execução
+        with open(TOKEN_FILE, 'wb') as token:
+            pickle.dump(creds, token)
+        
+        st.success("Autenticação com Google Drive concluída com sucesso!")
+        st.info("A página será recarregada para aplicar a nova conexão.")
+        st.rerun()
 
-        col1, col2 = st.columns([0.7, 0.3])
-        with col1:
-            auth_code = st.text_input("3. Cole o código de autorização aqui:", key="gdrive_auth_code_input", label_visibility="collapsed")
-        with col2:
-            st.markdown("<br/>", unsafe_allow_html=True)
-            if st.button("Confirmar Código", type="primary"):
-                if auth_code:
-                    with st.spinner("Verificando código..."):
-                        try:
-                            flow.fetch_token(code=auth_code)
-                            creds = flow.credentials
-                            with open(TOKEN_FILE, 'wb') as token:
-                                pickle.dump(creds, token)
-                            st.success("Autenticação concluída com sucesso!")
-                            st.info("A página será recarregada para aplicar a conexão.")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Erro ao verificar o código: {e}. Verifique se o código está correto e tente novamente.")
-                else:
-                    st.warning("Por favor, insira o código antes de confirmar.")
     except Exception as e:
         st.error(f"Ocorreu um erro durante a autenticação: {e}")
 
