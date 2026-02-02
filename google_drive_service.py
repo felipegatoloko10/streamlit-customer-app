@@ -61,7 +61,8 @@ def initiate_authentication():
         
         st.info("Siga os passos para autorizar o acesso ao Google Drive:")
         st.markdown(f"1. **[Clique aqui para abrir a página de autorização do Google]({auth_url})**", unsafe_allow_html=True)
-        st.write("2. Conceda as permissões e copie o código de autorização gerado.")
+        st.write("2. Faça login, conceda as permissões e copie o código de autorização gerado.")
+        st.warning("Atenção: o código é de uso único e expira rapidamente. Se a autenticação falhar, pode ser necessário gerar um novo código clicando no link novamente.")
         
         col1, col2 = st.columns([0.7, 0.3])
         with col1:

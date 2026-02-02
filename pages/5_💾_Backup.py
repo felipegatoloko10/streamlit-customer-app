@@ -163,17 +163,33 @@ with st.expander("2. Backup em Nuvem (Google Drive)", expanded=True):
 
             st.subheader("Passo 1: Fazer upload do `credentials.json`")
             st.info("Para usar o backup em nuvem, você precisa de um arquivo de credenciais do Google. Veja as instruções no expander no final desta página.")
+            
+            # Inicializa a variável de estado para controle do arquivo processado
+            if 'processed_creds_file' not in st.session_state:
+                st.session_state.processed_creds_file = None
+
             uploaded_creds = st.file_uploader(
                 "Selecione o arquivo de credenciais (`credentials.json`) que você baixou do Google Cloud.",
                 type=['json']
             )
-            if uploaded_creds is not None:
+
+            # Processa o arquivo apenas se for um arquivo novo
+            if uploaded_creds is not None and uploaded_creds.name != st.session_state.processed_creds_file:
                 with open(google_drive_service.CREDENTIALS_FILE, "wb") as f:
                     f.write(uploaded_creds.getbuffer())
-                st.success(f"Arquivo `{uploaded_creds.name}` salvo! Agora você pode se conectar no Passo 2.")
+                
+                # Marca o arquivo como processado
+                st.session_state.processed_creds_file = uploaded_creds.name
+                # Desconecta a conta antiga para forçar o uso das novas credenciais
                 if os.path.exists(google_drive_service.TOKEN_FILE):
                     os.remove(google_drive_service.TOKEN_FILE)
-                st.rerun()
+
+                st.success(f"Arquivo `{uploaded_creds.name}` salvo! Agora você pode se conectar no Passo 2.")
+                st.rerun() # Reruns uma vez para atualizar a UI
+
+            # Reseta o estado se o usuário limpar o uploader
+            elif uploaded_creds is None and st.session_state.processed_creds_file is not None:
+                st.session_state.processed_creds_file = None
 
             st.markdown("---")
             st.subheader("Passo 2: Conectar ao Google Drive")
