@@ -1,0 +1,22 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Database
+customers.db
+*.db
+
+# Secrets & Tokens (IMPORTANT)
+token.pickle
+credentials.json
+email_config.json
+.streamlit/secrets.toml
+
+# Backup Files
+backup_*.db
+temp_*.db
+
+# OS generated files
+.DS_Store
+Thumbs.db
