@@ -1,12 +1,15 @@
 from typing import Optional, List
 from datetime import date, datetime
 from sqlmodel import Field, Relationship, SQLModel
+from sqlalchemy.orm import clear_mappers
 
-# Fix for Streamlit cloud: remove existing tables from metadata to avoid "Table already defined" error
-# and avoid Mapper configuration errors that happen with extend_existing=True
-for table in ["clientes", "contatos", "enderecos", "audit_logs"]:
-    if table in SQLModel.metadata.tables:
-        SQLModel.metadata.remove(SQLModel.metadata.tables[table])
+# Fix for Streamlit cloud: Force full reset of Mappers and Metadata on reload
+# This prevents "Table already defined" AND Mapper configuration errors
+try:
+    clear_mappers()
+    SQLModel.metadata.clear()
+except Exception:
+    pass
 
 class ClienteBase(SQLModel):
     nome_completo: str
