@@ -13,6 +13,7 @@ class ClienteBase(SQLModel):
 
 class Cliente(ClienteBase, table=True):
     __tablename__ = "clientes"
+    __table_args__ = {"extend_existing": True}
     id: Optional[int] = Field(default=None, primary_key=True)
     
     contatos: List["Contato"] = Relationship(back_populates="cliente")
@@ -27,6 +28,7 @@ class ContatoBase(SQLModel):
 
 class Contato(ContatoBase, table=True):
     __tablename__ = "contatos"
+    __table_args__ = {"extend_existing": True}
     id: Optional[int] = Field(default=None, primary_key=True)
     cliente_id: int = Field(foreign_key="clientes.id")
     
@@ -46,6 +48,7 @@ class EnderecoBase(SQLModel):
 
 class Endereco(EnderecoBase, table=True):
     __tablename__ = "enderecos"
+    __table_args__ = {"extend_existing": True}
     id: Optional[int] = Field(default=None, primary_key=True)
     cliente_id: int = Field(foreign_key="clientes.id")
     
@@ -53,6 +56,7 @@ class Endereco(EnderecoBase, table=True):
 
 class AuditLog(SQLModel, table=True):
     __tablename__ = "audit_logs"
+    __table_args__ = {"extend_existing": True}
     id: Optional[int] = Field(default=None, primary_key=True)
     timestamp: datetime = Field(default_factory=datetime.now)
     entidade: str
