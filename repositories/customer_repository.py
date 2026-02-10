@@ -45,7 +45,7 @@ class CustomerRepository(BaseRepository[Cliente]):
             self.session.rollback()
             raise e
 
-    def update_customer(self, customer_id: int, cliente_data: dict, contatos_data: List[dict] = None, enderecos_data: List[dict] = None) -> Optional[Cliente]:
+    def update_customer(self, customer_id: int, data: dict, contatos_data: List[dict] = None, enderecos_data: List[dict] = None) -> Optional[Cliente]:
         try:
             cliente = self.get(customer_id)
             if not cliente:
@@ -53,19 +53,56 @@ class CustomerRepository(BaseRepository[Cliente]):
 
             antes = cliente.model_dump()
             
-            # Atualiza dados do cliente
-            for key, value in cliente_data.items():
-                setattr(cliente, key, value)
+            # Filtra apenas campos que pertencem ao modelo Cliente
+            # para evitar ValueError quando campos de UI (como 'contato1') são passados
+            cliente_fields = self.model.__fields__.keys()
+            for key, value in data.items():
+                if key in cliente_fields and key != 'id':
+                    setattr(cliente, key, value)
             
             self.session.add(cliente)
 
-            # Lógica simplificada para atualização de contatos e endereços
-            # Em um cenário real, poderíamos comparar IDs para atualizar/remover/adicionar
-            # Aqui, vamos assumir que a atualização principal é no cliente, 
-            # e se houver dados de contatos/endereços, tratamos (a refatoração completa dessa parte pode ser complexa)
-            # Por enquanto, mantemos o foco na atualização do Cliente que é o mais crítico
+            # Para simplificar e manter a compatibilidade com o database.py original,
+            # vamos atualizar contatos e endereços se os dados estiverem presentes no dicionário 'data'
+            # (mapeando os nomes de campos da UI para os modelos)
             
-            # ... (Lógica de atualização de contatos/endereços se necessário, similar ao database.py)
+            # 1. Contatos
+            for tipo in ['Principal', 'Secundário']:
+                suffix = '1' if tipo == 'Principal' else '2'
+                nome_key = f'contato{suffix}'
+                tel_key = f'telefone{suffix}'
+                
+                # Campos específicos do contato principal
+                email_key = 'email' if tipo == 'Principal' else None
+                cargo_key = 'cargo' if tipo == 'Principal' else None
+
+                if any(data.get(k) for k in [nome_key, tel_key, email_key, cargo_key] if k):
+                    contato = next((c for c in cliente.contatos if c.tipo_contato == tipo), None)
+                    if not contato:
+                        contato = Contato(cliente_id=cliente.id, tipo_contato=tipo)
+                    
+                    if data.get(nome_key): contato.nome_contato = data.get(nome_key)
+                    if data.get(tel_key): contato.telefone = data.get(tel_key)
+                    if email_key and data.get(email_key): contato.email_contato = data.get(email_key)
+                    if cargo_key and data.get(cargo_key): contato.cargo_contato = data.get(cargo_key)
+                    self.session.add(contato)
+
+            # 2. Endereço
+            if any(data.get(k) for k in ['cep', 'endereco', 'numero', 'complemento', 'bairro', 'cidade', 'estado']):
+                endereco = next((e for e in cliente.enderecos if e.tipo_endereco == 'Principal'), None)
+                if not endereco:
+                    endereco = Endereco(cliente_id=cliente.id, tipo_endereco='Principal')
+                
+                if data.get('cep'): endereco.cep = data.get('cep')
+                if data.get('endereco'): endereco.logradouro = data.get('endereco')
+                if data.get('numero'): endereco.numero = data.get('numero')
+                if data.get('complemento'): endereco.complemento = data.get('complemento')
+                if data.get('bairro'): endereco.bairro = data.get('bairro')
+                if data.get('cidade'): endereco.cidade = data.get('cidade')
+                if data.get('estado'): endereco.estado = data.get('estado')
+                if data.get('latitude'): endereco.latitude = data.get('latitude')
+                if data.get('longitude'): endereco.longitude = data.get('longitude')
+                self.session.add(endereco)
 
             self._log_audit('cliente', customer_id, 'UPDATE', antes=antes, depois=cliente.model_dump())
             self.session.commit()
@@ -99,6 +136,7 @@ class CustomerRepository(BaseRepository[Cliente]):
             usuario=usuario,
             timestamp=datetime.datetime.now()
         )
+        self.session.add(log)
     def list_customers(self, search_query: str = None, state_filter: str = None, offset: int = 0, limit: int = 10) -> List[Cliente]:
         from sqlmodel import func
         

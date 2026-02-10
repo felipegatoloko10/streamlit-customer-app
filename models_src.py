@@ -65,10 +65,3 @@ class AuditLog(SQLModel, table=True):
     dados_anteriores: Optional[str] = None # JSON string
     dados_novos: Optional[str] = None # JSON string
     usuario: str = Field(default="Sistema")
-    timestamp: datetime = Field(default_factory=datetime.now)
-    entidade: str
-    entidade_id: int
-    acao: str # 'INSERT', 'UPDATE', 'DELETE'
-    dados_anteriores: Optional[str] = None # JSON string
-    dados_novos: Optional[str] = None # JSON string
-    usuario: str = Field(default="Sistema")
