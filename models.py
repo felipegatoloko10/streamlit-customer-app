@@ -2,6 +2,12 @@ from typing import Optional, List
 from datetime import date, datetime
 from sqlmodel import Field, Relationship, SQLModel
 
+# Fix for Streamlit cloud: remove existing tables from metadata to avoid "Table already defined" error
+# and avoid Mapper configuration errors that happen with extend_existing=True
+for table in ["clientes", "contatos", "enderecos", "audit_logs"]:
+    if table in SQLModel.metadata.tables:
+        SQLModel.metadata.remove(SQLModel.metadata.tables[table])
+
 class ClienteBase(SQLModel):
     nome_completo: str
     tipo_documento: str
@@ -13,7 +19,6 @@ class ClienteBase(SQLModel):
 
 class Cliente(ClienteBase, table=True):
     __tablename__ = "clientes"
-    __table_args__ = {"extend_existing": True}
     id: Optional[int] = Field(default=None, primary_key=True)
     
     contatos: List["Contato"] = Relationship(back_populates="cliente")
@@ -28,7 +33,6 @@ class ContatoBase(SQLModel):
 
 class Contato(ContatoBase, table=True):
     __tablename__ = "contatos"
-    __table_args__ = {"extend_existing": True}
     id: Optional[int] = Field(default=None, primary_key=True)
     cliente_id: int = Field(foreign_key="clientes.id")
     
@@ -48,7 +52,6 @@ class EnderecoBase(SQLModel):
 
 class Endereco(EnderecoBase, table=True):
     __tablename__ = "enderecos"
-    __table_args__ = {"extend_existing": True}
     id: Optional[int] = Field(default=None, primary_key=True)
     cliente_id: int = Field(foreign_key="clientes.id")
     
@@ -56,7 +59,6 @@ class Endereco(EnderecoBase, table=True):
 
 class AuditLog(SQLModel, table=True):
     __tablename__ = "audit_logs"
-    __table_args__ = {"extend_existing": True}
     id: Optional[int] = Field(default=None, primary_key=True)
     timestamp: datetime = Field(default_factory=datetime.now)
     entidade: str
