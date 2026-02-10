@@ -13,10 +13,11 @@ Sistema completo de gestão de clientes desenvolvido em Python com Streamlit, fe
 - ✅ **Geocodificação** automática de endereços via Nominatim
 - ✅ **Dashboard Analítico** com métricas e visualizações
 - ✅ **Mapas Interativos** com PyDeck
-- ✅ **Sistema de Backup** automático
+- ✅ **Sistema de Backup Local e Nuvem** (Google Drive) automático e manual
 - ✅ **Audit Trail** de todas as operações
 - ✅ **Validação** de CPF/CNPJ
 - ✅ **Integração WhatsApp** com links diretos
+- ✅ **Estabilidade Streamlit Cloud** com gerenciamento de mappers SQLModel e exclusão em cascata
 
 ## 🏗️ Arquitetura
 
@@ -34,8 +35,11 @@ Database (SQLite + SQLModel ORM)
 
 ```
 streamlit-customer-app/
-├── models.py                    # SQLModel ORM models
-├── database_config.py           # Database engine configuration
+├── models.py                    # Singleton Proxy para modelos (Singleton Pattern)
+├── models_src.py                # Definição real dos modelos SQLModel
+├── database_config.py           # Database engine e criação de tabelas
+├── google_drive_service.py      # Integração com Google Drive API
+├── backup_manager.py            # Lógica de backup automático/manual
 ├── validators.py                # Data validation (CPF, CNPJ, email)
 │
 ├── repositories/
@@ -49,7 +53,8 @@ streamlit-customer-app/
 ├── pages/
 │   ├── 0_🏠_Dashboard.py       # Analytics and metrics
 │   ├── 1_📝_Cadastro.py        # Customer registration
-│   └── 2_📊_Banco_de_Dados.py  # Customer database grid
+│   ├── 2_📊_Banco_de_Dados.py  # Customer database grid
+│   └── 5_💾_Backup.py           # Configurações de Backup e Nuvem
 │
 ├── tests/
 │   ├── test_customer_repository.py
@@ -64,6 +69,7 @@ streamlit-customer-app/
 
 - Python 3.8 ou superior
 - pip
+- Google Drive API Credentials (para backup em nuvem)
 
 ### Setup
 
