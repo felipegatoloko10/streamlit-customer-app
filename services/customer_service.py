@@ -182,6 +182,7 @@ class CustomerService:
                 data = {
                     "id": customer.id,
                     "nome_completo": customer.nome_completo,
+                    "tipo_documento": customer.tipo_documento,
                     "cpf": validators.format_cpf(customer.cpf) if customer.cpf else None,
                     "cnpj": validators.format_cnpj(customer.cnpj) if customer.cnpj else None,
                     "data_nascimento": customer.data_nascimento,

@@ -156,6 +156,7 @@ with st.sidebar:
         "cep": "CEP",
         "endereco": "Endereço",
         "numero": "Nº",
+        "complemento": "Complemento",
         "bairro": "Bairro",
         "observacao": "Observações"
     }
@@ -375,8 +376,10 @@ def show_customer_grid(search_query, state_filter, page_number, page_size, total
         )
         st.markdown(f"Mostrando **{len(df_page)}** de **{total_records}** registros. Página **{page_number}** de **{total_pages}**.")
         
-        if st.session_state.customer_grid['selection']['rows']:
-            selected_id = int(df_page.iloc[st.session_state.customer_grid['selection']['rows'][0]]['id'])
+        # Check if selection exists and is not empty
+        selection = st.session_state.get('customer_grid', {}).get('selection', {}).get('rows', [])
+        if selection:
+            selected_id = int(df_page.iloc[selection[0]]['id'])
             st.session_state.selected_customer_id = selected_id
             st.rerun()
 
