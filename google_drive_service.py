@@ -75,6 +75,19 @@ def finalize_manual_auth(auth_code):
         return False
 
 def initiate_authentication():
+    """Inicia o fluxo de autenticação automático (abre o navegador)."""
+    if not os.path.exists(CREDENTIALS_FILE):
+        return False
+    try:
+        flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_FILE, SCOPES)
+        # Tenta abrir o navegador (funciona em PC local)
+        creds = flow.run_local_server(port=0, open_browser=True)
+        with open(TOKEN_FILE, 'wb') as token:
+            pickle.dump(creds, token)
+        return True
+    except Exception as e:
+        # Se falhar (como no Streamlit Cloud), avisa para usar o manual
+        raise e
     """
     Inicia o fluxo de autenticação automático e interativo.
     Retorna True se a autenticação foi bem-sucedida, False caso contrário.

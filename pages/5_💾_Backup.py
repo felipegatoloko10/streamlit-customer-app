@@ -145,23 +145,30 @@ try:
             if not creds_exist:
                 st.caption("O botão de conexão será habilitado após o upload do `credentials.json` no Passo 1.")
             
-            # Novo fluxo de autenticação manual para nuvem
             if creds_exist:
-                auth_url = google_drive_service.get_auth_url()
-                st.markdown(f"1. [Clique aqui para autorizar o acesso ao Google Drive]({auth_url})")
-                st.write("2. Faça login, copie o **código** que o Google fornecer e cole abaixo:")
+                col1, col2 = st.columns(2)
+                with col1:
+                    if st.button("🚀 Conectar Automaticamente", type="primary", use_container_width=True):
+                        try:
+                            with st.spinner("Abrindo navegador..."):
+                                success = google_drive_service.initiate_authentication()
+                            if success:
+                                st.success("Conectado!")
+                                st.rerun()
+                        except Exception as e:
+                            st.error("Não foi possível abrir o navegador automaticamente no servidor. Use a 'Conexão Manual' abaixo.")
                 
-                auth_code = st.text_input("Cole o código de autorização aqui:", key="gdrive_auth_code")
-                
-                if st.button("Confirmar Conexão", type="primary", use_container_width=True):
-                    if auth_code:
-                        with st.spinner("Validando conexão..."):
-                            success = google_drive_service.finalize_manual_auth(auth_code)
-                        if success:
-                            st.success("Conexão estabelecida!")
+                with col2:
+                    show_manual = st.toggle("Mostrar Conexão Manual", help="Use esta opção se estiver no Streamlit Cloud/Internet")
+
+                if show_manual:
+                    st.markdown("---")
+                    auth_url = google_drive_service.get_auth_url()
+                    st.markdown(f"1. [Clique aqui para autorizar o acesso]({auth_url})")
+                    auth_code = st.text_input("Cole o código aqui:", key="gdrive_auth_code")
+                    if st.button("Confirmar Código", use_container_width=True):
+                        if google_drive_service.finalize_manual_auth(auth_code):
                             st.rerun()
-                    else:
-                        st.warning("Por favor, insira o código de autorização.")
             
             st.markdown("---")
             with st.expander("Instruções detalhadas para gerar o `credentials.json`"):
