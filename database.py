@@ -1,4 +1,3 @@
-import sqlite3
 import pandas as pd
 import streamlit as st
 import logging
@@ -6,6 +5,10 @@ import validators
 import services
 import backup_manager
 import datetime
+import json
+from sqlmodel import select, Session, text
+import database_config
+from models import Cliente, Contato, Endereco, AuditLog
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -30,80 +33,6 @@ CONTATOS_COLUMNS = [
 ENDERECOS_COLUMNS = [
     'cliente_id', 'cep', 'logradouro', 'numero', 'complemento', 'bairro', 'cidade', 'estado', 'tipo_endereco'
 ]
-
-
-@st.cache_resource
-def get_db_connection():
-    """Cria e retorna uma conexão com o banco de dados, e garante que o esquema da tabela está atualizado."""
-    conn = sqlite3.connect('customers.db', check_same_thread=False)
-    cursor = conn.cursor()
-    
-    cursor.execute("PRAGMA table_info(customers)")
-    columns = [row[1] for row in cursor.fetchall()]
-    if columns and 'tipo_documento' not in columns:
-        logging.warning("Tabela antiga 'customers' detectada. Por segurança, os dados não foram apagados. Migre-os para a nova estrutura 'clientes' manualmente.")
-
-
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS clientes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nome_completo TEXT NOT NULL,
-            tipo_documento TEXT NOT NULL,
-            cpf TEXT UNIQUE,
-            cnpj TEXT UNIQUE,
-            data_nascimento DATE,
-            data_cadastro DATE DEFAULT (date('now')),
-            observacao TEXT,
-            CHECK (
-                (tipo_documento = 'CPF' AND cpf IS NOT NULL) OR
-                (tipo_documento = 'CNPJ' AND cnpj IS NOT NULL)
-            )
-        )
-    ''')
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS contatos (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            cliente_id INTEGER NOT NULL,
-            nome_contato TEXT,
-            telefone TEXT,
-            email_contato TEXT,
-            cargo_contato TEXT,
-            tipo_contato TEXT, -- e.g., 'Principal', 'Secundário', 'Financeiro'
-            FOREIGN KEY (cliente_id) REFERENCES clientes(id) ON DELETE CASCADE
-        )
-    ''')
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS enderecos (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            cliente_id INTEGER NOT NULL,
-            cep TEXT,
-            logradouro TEXT,
-            numero TEXT,
-            complemento TEXT,
-            bairro TEXT,
-            cidade TEXT,
-            estado TEXT,
-            latitude REAL,
-            longitude REAL,
-            tipo_endereco TEXT, -- e.g., 'Principal', 'Entrega', 'Cobrança'
-            FOREIGN KEY (cliente_id) REFERENCES clientes(id) ON DELETE CASCADE
-        )
-    ''')
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS audit_logs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-            entidade TEXT, -- 'cliente', 'contato', 'endereco'
-            entidade_id INTEGER,
-            acao TEXT, -- 'INSERT', 'UPDATE', 'DELETE'
-            dados_anteriores TEXT, -- JSON
-            dados_novos TEXT, -- JSON
-            usuario TEXT DEFAULT 'Sistema'
-        )
-    ''')
-    conn.commit()
-    logging.info("Conexão com o banco de dados estabelecida e esquema garantido.")
-    return conn
 
 def log_action(cursor, entidade, entidade_id, acao, antes=None, depois=None):
     """Registra uma ação na tabela de auditoria."""
@@ -153,293 +82,222 @@ def _validate_cliente_data(cliente_data: dict):
             raise validators.ValidationError("O campo 'CNPJ' é obrigatório para o cliente.")
         validators.is_valid_cnpj(cliente_data['cnpj'])
 
+from sqlmodel import select, Session
+import database_config
+from models import Cliente, Contato, Endereco, AuditLog
+import json
+
+def get_session():
+    """Retorna uma nova sessão do banco de dados."""
+    return Session(database_config.engine)
+
+def log_audit(session: Session, entidade: str, entidade_id: int, acao: str, antes: dict = None, depois: dict = None, usuario: str = "Sistema"):
+    """Registra uma ação na tabela de auditoria."""
+    log = AuditLog(
+        entidade=entidade,
+        entidade_id=entidade_id,
+        acao=acao,
+        dados_anteriores=json.dumps(antes, default=str) if antes else None,
+        dados_novos=json.dumps(depois, default=str) if depois else None,
+        usuario=usuario
+    )
+    session.add(log)
+
 def insert_customer(data: dict):
-    """Insere um novo cliente e seus contatos/endereços após validação e sanitização."""
-    # Higieniza os dados antes de qualquer operação
+    """Insere um novo cliente e seus contatos/endereços usando SQLModel."""
+    # Higieniza os dados
     data = _sanitize_data(data)
     
-    conn = get_db_connection()
-    try:
-        cursor = conn.cursor()
-        cursor.execute("BEGIN TRANSACTION")
+    # Validações básicas (mantendo a lógica original)
+    _validate_cliente_data(data)
 
-        # 1. Preparar e inserir dados na tabela clientes
-        cliente_data = {
-            'nome_completo': data.get('nome_completo'),
-            'tipo_documento': data.get('tipo_documento'),
-            'cpf': validators.unformat_cpf(data.get('cpf')) if data.get('cpf') else None,
-            'cnpj': validators.unformat_cnpj(data.get('cnpj')) if data.get('cnpj') else None,
-            'data_nascimento': data.get('data_nascimento'),
-            'observacao': data.get('observacao'),
-            # data_cadastro is handled by DEFAULT (date('now'))
-        }
-        # Filter out None values to use DEFAULT where applicable
-        cliente_data_filtered = {k: v for k, v in cliente_data.items() if v is not None}
-        
-        # Validate primary client data
-        _validate_cliente_data(cliente_data)
-
-        clientes_cols = ', '.join(cliente_data_filtered.keys())
-        clientes_placeholders = ', '.join(['?'] * len(cliente_data_filtered))
-        sql_clientes = f"INSERT INTO clientes ({clientes_cols}) VALUES ({clientes_placeholders})"
-        cursor.execute(sql_clientes, list(cliente_data_filtered.values()))
-        cliente_id = cursor.lastrowid
-        
-        # Registrar Log de Auditoria
-        log_action(cursor, 'cliente', cliente_id, 'INSERT', depois=cliente_data_filtered)
-        
-        logging.info(f"Cliente '{cliente_data.get('nome_completo')}' inserido com sucesso com ID: {cliente_id}.")
-
-        # 2. Preparar e inserir dados na tabela contatos (até 2 contatos, e-mail e cargo)
-        contacts_to_insert = []
-        if data.get('telefone1') or data.get('contato1') or data.get('email') or data.get('cargo'):
-            contacts_to_insert.append({
-                'cliente_id': cliente_id,
-                'nome_contato': data.get('contato1'),
-                'telefone': validators.unformat_whatsapp(data.get('telefone1')) if data.get('telefone1') else None,
-                'email_contato': data.get('email'),
-                'cargo_contato': data.get('cargo'),
-                'tipo_contato': 'Principal'
-            })
-        if data.get('telefone2') or data.get('contato2'):
-            contacts_to_insert.append({
-                'cliente_id': cliente_id,
-                'nome_contato': data.get('contato2'),
-                'telefone': validators.unformat_whatsapp(data.get('telefone2')) if data.get('telefone2') else None,
-                'email_contato': None, # Assuming email/cargo from original 'customers' belong to contact1
-                'cargo_contato': None,
-                'tipo_contato': 'Secundário'
-            })
-
-        for contact in contacts_to_insert:
-            contact_data_filtered = {k: v for k, v in contact.items() if v is not None}
-            if contact_data_filtered: # Only insert if there's actual data
-                contatos_cols = ', '.join(contact_data_filtered.keys())
-                contatos_placeholders = ', '.join(['?'] * len(contact_data_filtered))
-                sql_contatos = f"INSERT INTO contatos ({contatos_cols}) VALUES ({contatos_placeholders})"
-                cursor.execute(sql_contatos, list(contact_data_filtered.values()))
-                logging.info(f"Contato para cliente {cliente_id} inserido.")
-
-        # 3. Preparar e inserir dados na tabela enderecos
-        if any(data.get(field) for field in ['cep', 'endereco', 'numero', 'complemento', 'bairro', 'cidade', 'estado']):
-            endereco_data = {
-                'cliente_id': cliente_id,
-                'cep': data.get('cep'),
-                'logradouro': data.get('endereco'),
-                'numero': data.get('numero'),
-                'complemento': data.get('complemento'),
-                'bairro': data.get('bairro'),
-                'cidade': data.get('cidade'),
-                'estado': data.get('estado'),
-                'latitude': data.get('latitude'), # Added
-                'longitude': data.get('longitude'), # Added
-                'tipo_endereco': 'Principal' # Defaulting for now
-            }
-            endereco_data_filtered = {k: v for k, v in endereco_data.items() if v is not None}
-            if endereco_data_filtered:
-                enderecos_cols = ', '.join(endereco_data_filtered.keys())
-                enderecos_placeholders = ', '.join(['?'] * len(endereco_data_filtered))
-                sql_enderecos = f"INSERT INTO enderecos ({enderecos_cols}) VALUES ({enderecos_placeholders})"
-                cursor.execute(sql_enderecos, list(endereco_data_filtered.values()))
-                logging.info(f"Endereço para cliente {cliente_id} inserido.")
-
-        conn.commit()
-
-        # Try to send email and backup, but don't roll back if they fail
+    with get_session() as session:
         try:
-            services.send_new_customer_email(data, cliente_id)
-        except Exception as e:
-            logging.error(f"Falha ao enviar e-mail de notificação: {e}")
-        
-        try:
-            backup_manager.increment_and_check_backup()
-        except Exception as e:
-            logging.error(f"Erro ao tentar backup automático: {e}")
+            # 1. Cliente
+            cliente = Cliente(
+                nome_completo=data.get('nome_completo'),
+                tipo_documento=data.get('tipo_documento'),
+                cpf=validators.unformat_cpf(data.get('cpf')) if data.get('cpf') else None,
+                cnpj=validators.unformat_cnpj(data.get('cnpj')) if data.get('cnpj') else None,
+                data_nascimento=data.get('data_nascimento'),
+                observacao=data.get('observacao')
+            )
+            session.add(cliente)
+            session.flush() # Para obter o ID gerado
 
-    except sqlite3.IntegrityError as e:
-        conn.rollback()
-        raise DuplicateEntryError("O CPF ou CNPJ informado já existe.") from e
-    except sqlite3.Error as e:
-        conn.rollback()
-        raise DatabaseError(f"Ocorreu um erro ao salvar o novo cliente: {e}") from e
-    except validators.ValidationError as e:
-        conn.rollback()
-        raise DatabaseError(f"Erro de validação ao salvar o cliente: {e}") from e
+            # 2. Contatos
+            if data.get('telefone1') or data.get('contato1') or data.get('email') or data.get('cargo'):
+                contato1 = Contato(
+                    cliente_id=cliente.id,
+                    nome_contato=data.get('contato1'),
+                    telefone=validators.unformat_whatsapp(data.get('telefone1')) if data.get('telefone1') else None,
+                    email_contato=data.get('email'),
+                    cargo_contato=data.get('cargo'),
+                    tipo_contato='Principal'
+                )
+                session.add(contato1)
+            
+            if data.get('telefone2') or data.get('contato2'):
+                contato2 = Contato(
+                    cliente_id=cliente.id,
+                    nome_contato=data.get('contato2'),
+                    telefone=validators.unformat_whatsapp(data.get('telefone2')) if data.get('telefone2') else None,
+                    tipo_contato='Secundário'
+                )
+                session.add(contato2)
+
+            # 3. Endereço
+            if any(data.get(field) for field in ['cep', 'endereco', 'numero', 'complemento', 'bairro', 'cidade', 'estado']):
+                endereco = Endereco(
+                    cliente_id=cliente.id,
+                    cep=data.get('cep'),
+                    logradouro=data.get('endereco'),
+                    numero=data.get('numero'),
+                    complemento=data.get('complemento'),
+                    bairro=data.get('bairro'),
+                    cidade=data.get('cidade'),
+                    estado=data.get('estado'),
+                    latitude=data.get('latitude'),
+                    longitude=data.get('longitude'),
+                    tipo_endereco='Principal'
+                )
+                session.add(endereco)
+
+            # Auditoria
+            log_audit(session, 'cliente', cliente.id, 'INSERT', depois=cliente.model_dump())
+            
+            session.commit()
+            logging.info(f"Cliente '{cliente.nome_completo}' inserido com sucesso com ID: {cliente.id}.")
+
+            # Tarefas assíncronas (mantidas do original)
+            try:
+                services.send_new_customer_email(data, cliente.id)
+            except Exception as e:
+                logging.error(f"Falha ao enviar e-mail de notificação: {e}")
+            
+            try:
+                backup_manager.increment_and_check_backup()
+            except Exception as e:
+                logging.error(f"Erro ao tentar backup automático: {e}")
+
+        except Exception as e:
+            session.rollback()
+            # Mapeamento de erros para manter compatibilidade
+            if "UNIQUE constraint failed" in str(e):
+                 raise DuplicateEntryError("O CPF ou CNPJ informado já existe.") from e
+            raise DatabaseError(f"Erro ao salvar cliente: {e}") from e
 
 def update_customer(customer_id: int, data: dict):
     """Atualiza um cliente existente e seus contatos/endereços após validação e sanitização."""
-    # Higieniza os dados recebidos para atualização
+    # Higieniza os dados
     data = _sanitize_data(data)
     
-    conn = get_db_connection()
-    try:
-        # Obter dados atuais para o log de auditoria
-        antes = get_customer_by_id(customer_id)
-        
-        cursor = conn.cursor()
-        cursor.execute("BEGIN TRANSACTION")
+    with get_session() as session:
+        try:
+            # Busca o cliente existente
+            cliente = session.get(Cliente, customer_id)
+            if not cliente:
+                raise DatabaseError(f"Cliente com ID {customer_id} não encontrado.")
 
-        # 1. Atualizar dados na tabela clientes
-        cliente_update_payload = {}
-        for col in ['nome_completo', 'tipo_documento', 'data_nascimento', 'observacao']:
-            if data.get(col) is not None:
-                cliente_update_payload[col] = data[col]
-        
-        # Handle CPF/CNPJ update specifically
-        if data.get('cpf') is not None:
-            cliente_update_payload['cpf'] = validators.unformat_cpf(data['cpf'])
-        if data.get('cnpj') is not None:
-            cliente_update_payload['cnpj'] = validators.unformat_cnpj(data['cnpj'])
-
-        if cliente_update_payload:
-            clientes_columns_to_update = ', '.join([f'{key} = ?' for key in cliente_update_payload.keys()])
-            sql_clientes_update = f"UPDATE clientes SET {clientes_columns_to_update} WHERE id = ?"
-            cursor.execute(sql_clientes_update, list(cliente_update_payload.values()) + [customer_id])
-            logging.info(f"Cliente com ID {customer_id} atualizado na tabela clientes.")
-
-        # Registrar Log de Auditoria
-        log_action(cursor, 'cliente', customer_id, 'UPDATE', antes=antes, depois=data)
-
-        # 2. Atualizar/Inserir dados na tabela contatos (complexidade simplificada para esta fase)
-        # For simplicity in this refactoring step, we will assume a primary contact based on data.
-        # A more robust solution for multiple contacts would involve dedicated UI and explicit contact IDs.
-        
-        # Contact 1 (assuming it's the 'Principal')
-        contact1_payload = {}
-        if data.get('contato1') is not None:
-            contact1_payload['nome_contato'] = data['contato1']
-        if data.get('telefone1') is not None:
-            contact1_payload['telefone'] = validators.unformat_whatsapp(data['telefone1'])
-        if data.get('email') is not None: # Original email field
-            contact1_payload['email_contato'] = data['email']
-        if data.get('cargo') is not None: # Original cargo field
-            contact1_payload['cargo_contato'] = data['cargo']
-
-        if contact1_payload:
-            # Try to update an existing 'Principal' contact
-            cursor.execute("SELECT id FROM contatos WHERE cliente_id = ? AND tipo_contato = 'Principal'", (customer_id,))
-            existing_contact1_id = cursor.fetchone()
+            # Dados anteriores para auditoria
+            antes = cliente.model_dump()
             
-            if existing_contact1_id:
-                contact1_columns_to_update = ', '.join([f'{key} = ?' for key in contact1_payload.keys()])
-                sql_update_contact1 = f"UPDATE contatos SET {contact1_columns_to_update} WHERE id = ?"
-                cursor.execute(sql_update_contact1, list(contact1_payload.values()) + [existing_contact1_id[0]])
-                logging.info(f"Contato Principal para cliente {customer_id} atualizado.")
-            else:
-                # Insert new 'Principal' contact
-                contact1_payload['cliente_id'] = customer_id
-                contact1_payload['tipo_contato'] = 'Principal'
-                contatos_cols = ', '.join(contact1_payload.keys())
-                contatos_placeholders = ', '.join(['?'] * len(contact1_payload))
-                sql_insert_contact1 = f"INSERT INTO contatos ({contatos_cols}) VALUES ({contatos_placeholders})"
-                cursor.execute(sql_insert_contact1, list(contact1_payload.values()))
-                logging.info(f"Novo Contato Principal para cliente {customer_id} inserido.")
+            # 1. Atualizar Cliente
+            if data.get('nome_completo'):
+                cliente.nome_completo = data.get('nome_completo')
+            if data.get('tipo_documento'):
+                cliente.tipo_documento = data.get('tipo_documento')
+            if data.get('data_nascimento'):
+                cliente.data_nascimento = data.get('data_nascimento')
+            if data.get('observacao'):
+                cliente.observacao = data.get('observacao')
+            if data.get('cpf'):
+                cliente.cpf = validators.unformat_cpf(data.get('cpf'))
+            if data.get('cnpj'):
+                cliente.cnpj = validators.unformat_cnpj(data.get('cnpj'))
+            
+            session.add(cliente)
 
-        # Contact 2 (assuming it's the 'Secundário')
-        contact2_payload = {}
-        if data.get('contato2') is not None:
-            contact2_payload['nome_contato'] = data['contato2']
-        if data.get('telefone2') is not None:
-            contact2_payload['telefone'] = validators.unformat_whatsapp(data['telefone2'])
+            # 2. Atualizar Contatos
+            # Simplificação: Busca o contato principal existente ou cria um novo
+            stmt_contato1 = select(Contato).where(Contato.cliente_id == customer_id, Contato.tipo_contato == 'Principal')
+            contato1 = session.exec(stmt_contato1).first()
 
-        if contact2_payload:
-            cursor.execute("SELECT id FROM contatos WHERE cliente_id = ? AND tipo_contato = 'Secundário'", (customer_id,))
-            existing_contact2_id = cursor.fetchone()
+            if data.get('contato1') or data.get('telefone1') or data.get('email') or data.get('cargo'):
+                if not contato1:
+                    contato1 = Contato(cliente_id=cliente.id, tipo_contato='Principal')
+                
+                if data.get('contato1'): contato1.nome_contato = data.get('contato1')
+                if data.get('telefone1'): contato1.telefone = validators.unformat_whatsapp(data.get('telefone1'))
+                if data.get('email'): contato1.email_contato = data.get('email')
+                if data.get('cargo'): contato1.cargo_contato = data.get('cargo')
+                session.add(contato1)
 
-            if existing_contact2_id:
-                contact2_columns_to_update = ', '.join([f'{key} = ?' for key in contact2_payload.keys()])
-                sql_update_contact2 = f"UPDATE contatos SET {contact2_columns_to_update} WHERE id = ?"
-                cursor.execute(sql_update_contact2, list(contact2_payload.values()) + [existing_contact2_id[0]])
-                logging.info(f"Contato Secundário para cliente {customer_id} atualizado.")
-            else:
-                contact2_payload['cliente_id'] = customer_id
-                contact2_payload['tipo_contato'] = 'Secundário'
-                contatos_cols = ', '.join(contact2_payload.keys())
-                contatos_placeholders = ', '.join(['?'] * len(contact2_payload))
-                sql_insert_contact2 = f"INSERT INTO contatos ({contatos_cols}) VALUES ({contatos_placeholders})"
-                cursor.execute(sql_insert_contact2, list(contact2_payload.values()))
-                logging.info(f"Novo Contato Secundário para cliente {customer_id} inserido.")
+            # Contato Secundário
+            stmt_contato2 = select(Contato).where(Contato.cliente_id == customer_id, Contato.tipo_contato == 'Secundário')
+            contato2 = session.exec(stmt_contato2).first()
 
+            if data.get('contato2') or data.get('telefone2'):
+                if not contato2:
+                    contato2 = Contato(cliente_id=cliente.id, tipo_contato='Secundário')
+                
+                if data.get('contato2'): contato2.nome_contato = data.get('contato2')
+                if data.get('telefone2'): contato2.telefone = validators.unformat_whatsapp(data.get('telefone2'))
+                session.add(contato2)
 
-        # 3. Atualizar/Inserir dados na tabela enderecos (simplificado)
-        # Similar to contacts, assume a primary address based on data.
-        endereco_payload = {}
-        if data.get('cep') is not None:
-            endereco_payload['cep'] = data['cep']
-        if data.get('endereco') is not None:
-            endereco_payload['logradouro'] = data['endereco']
-        if data.get('numero') is not None:
-            endereco_payload['numero'] = data['numero']
-        if data.get('complemento') is not None:
-            endereco_payload['complemento'] = data['complemento']
-        if data.get('bairro') is not None:
-            endereco_payload['bairro'] = data['bairro']
-        if data.get('cidade') is not None:
-            endereco_payload['cidade'] = data['cidade']
-        if data.get('estado') is not None:
-            endereco_payload['estado'] = data['estado']
-        if data.get('latitude') is not None: # Added
-            endereco_payload['latitude'] = data['latitude'] # Added
-        if data.get('longitude') is not None: # Added
-            endereco_payload['longitude'] = data['longitude'] # Added
+            # 3. Atualizar Endereço
+            stmt_endereco = select(Endereco).where(Endereco.cliente_id == customer_id, Endereco.tipo_endereco == 'Principal')
+            endereco = session.exec(stmt_endereco).first()
+            
+            endereco_fields = ['cep', 'endereco', 'numero', 'complemento', 'bairro', 'cidade', 'estado', 'latitude', 'longitude']
+            if any(data.get(f) for f in endereco_fields):
+                if not endereco:
+                    endereco = Endereco(cliente_id=cliente.id, tipo_endereco='Principal')
+                
+                if data.get('cep'): endereco.cep = data.get('cep')
+                if data.get('endereco'): endereco.logradouro = data.get('endereco')
+                if data.get('numero'): endereco.numero = data.get('numero')
+                if data.get('complemento'): endereco.complemento = data.get('complemento')
+                if data.get('bairro'): endereco.bairro = data.get('bairro')
+                if data.get('cidade'): endereco.cidade = data.get('cidade')
+                if data.get('estado'): endereco.estado = data.get('estado')
+                if data.get('latitude'): endereco.latitude = data.get('latitude')
+                if data.get('longitude'): endereco.longitude = data.get('longitude')
+                session.add(endereco)
 
-        if endereco_payload:
-            cursor.execute("SELECT id FROM enderecos WHERE cliente_id = ? AND tipo_endereco = 'Principal'", (customer_id,))
-            existing_address_id = cursor.fetchone()
+            # Auditoria
+            log_audit(session, 'cliente', customer_id, 'UPDATE', antes=antes, depois=cliente.model_dump())
+            
+            session.commit()
+            logging.info(f"Cliente com ID {customer_id} atualizado com sucesso.")
 
-            if existing_address_id:
-                endereco_payload['tipo_endereco'] = 'Principal' # Ensure type is set if updating
-                enderecos_columns_to_update = ', '.join([f'{key} = ?' for key in endereco_payload.keys()])
-                sql_update_address = f"UPDATE enderecos SET {enderecos_columns_to_update} WHERE id = ?"
-                cursor.execute(sql_update_address, list(endereco_payload.values()) + [existing_address_id[0]])
-                logging.info(f"Endereço Principal para cliente {customer_id} atualizado.")
-            else:
-                endereco_payload['cliente_id'] = customer_id
-                endereco_payload['tipo_endereco'] = 'Principal'
-                enderecos_cols = ', '.join(endereco_payload.keys())
-                enderecos_placeholders = ', '.join(['?'] * len(endereco_payload))
-                sql_insert_address = f"INSERT INTO enderecos ({enderecos_cols}) VALUES ({enderecos_placeholders})"
-                cursor.execute(sql_insert_address, list(endereco_payload.values()))
-                logging.info(f"Novo Endereço Principal para cliente {customer_id} inserido.")
-
-        conn.commit()
-
-    except sqlite3.IntegrityError as e:
-        conn.rollback()
-        raise DuplicateEntryError("O CPF ou CNPJ informado já existe ou outro erro de integridade.") from e
-    except sqlite3.Error as e:
-        conn.rollback()
-        raise DatabaseError(f"Erro de banco de dados ao atualizar o cliente: {e}") from e
-    except validators.ValidationError as e:
-        conn.rollback()
-        raise DatabaseError(f"Erro de validação ao atualizar o cliente: {e}") from e
+        except Exception as e:
+            session.rollback()
+            if "UNIQUE constraint failed" in str(e):
+                 raise DuplicateEntryError("O CPF ou CNPJ informado já existe.") from e
+            raise DatabaseError(f"Erro ao atualizar cliente: {e}") from e
 
 def delete_customer(customer_id: int):
-    """Exclui um cliente e seus contatos/endereços associados, aproveitando ON DELETE CASCADE."""
-    conn = get_db_connection()
-    try:
-        # Obter dados antes para o log
-        antes = get_customer_by_id(customer_id)
-        
-        cursor = conn.cursor()
-        cursor.execute("BEGIN TRANSACTION")
-        
-        # Registrar Log de Auditoria antes de deletar
-        log_action(cursor, 'cliente', customer_id, 'DELETE', antes=antes)
-        
-        cursor.execute("DELETE FROM clientes WHERE id = ?", (customer_id,))
-        if cursor.rowcount == 0:
-            raise DatabaseError(f"Cliente com ID {customer_id} não encontrado para exclusão.")
-        conn.commit()
-        logging.info(f"Cliente com ID {customer_id} e dados relacionados excluídos com sucesso.")
-    except sqlite3.Error as e:
-        conn.rollback()
-        raise DatabaseError(f"Ocorreu um erro ao excluir o cliente: {e}") from e
+    """Exclui um cliente e seus dados relacionados."""
+    with get_session() as session:
+        try:
+            cliente = session.get(Cliente, customer_id)
+            if not cliente:
+                raise DatabaseError(f"Cliente com ID {customer_id} não encontrado.")
+            
+            # Auditoria antes de excluir
+            log_audit(session, 'cliente', customer_id, 'DELETE', antes=cliente.model_dump())
+            
+            session.delete(cliente)
+            session.commit()
+            logging.info(f"Cliente com ID {customer_id} excluído com sucesso.")
+            
+        except Exception as e:
+            session.rollback()
+            raise DatabaseError(f"Erro ao excluir cliente: {e}") from e
 
 def get_customer_by_id(customer_id: int) -> dict:
     """Busca um único cliente pelo seu ID e retorna como um dicionário."""
-    conn = get_db_connection()
-    conn.row_factory = sqlite3.Row # Return rows as dict-like objects
     
     select_columns = [
         "cl.id", "cl.nome_completo", "cl.tipo_documento", "cl.cpf", "cl.cnpj",
@@ -460,22 +318,29 @@ def get_customer_by_id(customer_id: int) -> dict:
     """
     
     try:
-        cursor = conn.cursor()
-        cursor.execute(query, (customer_id,))
-        customer_row = cursor.fetchone()
+        df = pd.read_sql_query(query, database_config.engine, params=(customer_id,))
         
-        if customer_row:
-            customer_dict = dict(customer_row)
+        if not df.empty:
+            customer_dict = df.iloc[0].to_dict()
             
-            # Format dates
+            # Format dates (Pandas often returns Timestamp, convert to date)
             if customer_dict.get('data_nascimento'):
                 try:
-                    customer_dict['data_nascimento'] = datetime.datetime.strptime(customer_dict['data_nascimento'], '%Y-%m-%d').date()
+                    val = customer_dict['data_nascimento']
+                    if isinstance(val, str):
+                         customer_dict['data_nascimento'] = datetime.datetime.strptime(val, '%Y-%m-%d').date()
+                    elif hasattr(val, 'date'):
+                         customer_dict['data_nascimento'] = val.date()
                 except (ValueError, TypeError):
                     customer_dict['data_nascimento'] = None
+
             if customer_dict.get('data_cadastro'):
                 try:
-                    customer_dict['data_cadastro'] = datetime.datetime.strptime(customer_dict['data_cadastro'], '%Y-%m-%d').date()
+                    val = customer_dict['data_cadastro']
+                    if isinstance(val, str):
+                        customer_dict['data_cadastro'] = datetime.datetime.strptime(val, '%Y-%m-%d').date()
+                    elif hasattr(val, 'date'):
+                         customer_dict['data_cadastro'] = val.date()
                 except (ValueError, TypeError):
                     customer_dict['data_cadastro'] = None
 
@@ -495,7 +360,7 @@ def get_customer_by_id(customer_id: int) -> dict:
         else:
             return None
 
-    except sqlite3.Error as e:
+    except Exception as e:
         raise DatabaseError(f"Erro ao buscar cliente por ID: {e}") from e
 
 def _build_where_clause(search_query: str = None, state_filter: str = None, start_date=None, end_date=None,
@@ -515,7 +380,6 @@ def _build_where_clause(search_query: str = None, state_filter: str = None, star
     return where_clause, params
 
 def count_total_records(search_query: str = None, state_filter: str = None) -> int:
-    conn = get_db_connection()
     
     # Pass aliases to _build_where_clause
     where_clause, params = _build_where_clause(search_query, state_filter, main_table_alias='cl', address_table_alias='en')
@@ -527,14 +391,13 @@ def count_total_records(search_query: str = None, state_filter: str = None) -> i
     query += where_clause
     
     try:
-        cursor = conn.cursor()
-        cursor.execute(query, params)
-        return cursor.fetchone()[0]
-    except sqlite3.Error as e:
+        # Use pandas read_sql_query for simple scalar fetch too, or direct execution
+        df = pd.read_sql_query(query, database_config.engine, params=params)
+        return int(df.iloc[0, 0])
+    except Exception as e:
         raise DatabaseError(f"Não foi possível contar os registros: {e}") from e
 
 def fetch_data(search_query: str = None, state_filter: str = None, page: int = 1, page_size: int = 10):
-    conn = get_db_connection()
     
     select_columns = [
         "cl.id", "cl.nome_completo", "cl.tipo_documento", "cl.cpf", "cl.cnpj",
@@ -543,22 +406,8 @@ def fetch_data(search_query: str = None, state_filter: str = None, page: int = 1
         "en.cep", "en.logradouro AS endereco", "en.numero", "en.complemento", "en.bairro", "en.cidade", "en.estado"
     ]
     
-    where_clause_parts = []
-    params = []
-
-    # Original _build_where_clause now needs to be adapted for 'clientes' table
-    if search_query:
-        where_clause_parts.append("(cl.nome_completo LIKE ? OR cl.cpf LIKE ? OR cl.cnpj LIKE ?)")
-        params.extend([f'%{search_query}%', f'%{search_query}%', f'%{search_query}%'])
-    if state_filter and state_filter != "Todos":
-        where_clause_parts.append("en.estado = ?") # Filter by address state
-        params.append(state_filter)
-    
-    # We will adjust filtering by date for cl.data_cadastro in the main query if needed in a later ticket
-    # For now, keeping the query structure aligned with the original fetch_data which uses data_cadastro from customers
-    # This will be refined as other reporting functions are refactored.
-
-    where_sql = " WHERE " + " AND ".join(where_clause_parts) if where_clause_parts else ""
+    # Use standard where clause builder
+    where_clause, params = _build_where_clause(search_query, state_filter, main_table_alias='cl', address_table_alias='en')
 
     offset = (page - 1) * page_size
     
@@ -571,13 +420,15 @@ def fetch_data(search_query: str = None, state_filter: str = None, page: int = 1
         FROM clientes cl
         LEFT JOIN contatos co ON cl.id = co.cliente_id AND co.tipo_contato = 'Principal'
         {join_type} enderecos en ON cl.id = en.cliente_id AND en.tipo_endereco = 'Principal'
-        {where_sql}
+        {where_clause}
         ORDER BY cl.id DESC
         LIMIT ? OFFSET ?
     """
     
     try:
-        df = pd.read_sql_query(query, conn, params=params + [page_size, offset])
+        # Pass page_size and offset to params
+        full_params = params + [page_size, offset]
+        df = pd.read_sql_query(query, database_config.engine, params=full_params)
         
         # Apply formatting as per original function
         df['data_nascimento'] = pd.to_datetime(df['data_nascimento'], errors='coerce').dt.date
@@ -596,15 +447,14 @@ def fetch_data(search_query: str = None, state_filter: str = None, page: int = 1
         # This will be a known limitation for this refactoring stage and needs dedicated handling if full original data is required.
 
         return df
-    except (pd.io.sql.DatabaseError, sqlite3.Error) as e:
-        raise DatabaseError(f"Erro ao buscar dados: {e}") from e
+    except Exception as e:
+         raise DatabaseError(f"Erro ao buscar dados: {e}") from e
 
 def get_new_customers_timeseries(start_date, end_date, period='M'):
     """
     Busca dados para o gráfico de série temporal de novos clientes.
     Agrupa por Dia ('D'), Semana ('W'), ou Mês ('M').
     """
-    conn = get_db_connection()
     
     if period == 'D':
         date_format = '%Y-%m-%d'
@@ -624,16 +474,15 @@ def get_new_customers_timeseries(start_date, end_date, period='M'):
         ORDER BY time_period;
     """
     try:
-        df = pd.read_sql_query(query, conn, params=[start_date, end_date])
+        df = pd.read_sql_query(query, database_config.engine, params=[start_date, end_date])
         return df
-    except (pd.io.sql.DatabaseError, sqlite3.Error) as e:
+    except Exception as e:
         raise DatabaseError(f"Erro ao buscar série temporal de clientes: {e}") from e
 
 def get_customers_by_state_for_map(start_date, end_date):
     """
     Busca a contagem de clientes por estado para o mapa coroplético.
     """
-    conn = get_db_connection()
     query = """
         SELECT en.estado, COUNT(cl.id) as count 
         FROM clientes cl
@@ -642,16 +491,15 @@ def get_customers_by_state_for_map(start_date, end_date):
         GROUP BY en.estado;
     """
     try:
-        df = pd.read_sql_query(query, conn, params=[start_date, end_date])
+        df = pd.read_sql_query(query, database_config.engine, params=[start_date, end_date])
         return df
-    except (pd.io.sql.DatabaseError, sqlite3.Error) as e:
+    except Exception as e:
         raise DatabaseError(f"Erro ao buscar contagem de clientes por estado: {e}") from e
 
 def get_top_cities_by_state(start_date, end_date, state=None):
     """
     Busca o top 10 de cidades, opcionalmente filtrando por um estado.
     """
-    conn = get_db_connection()
     # Pass state_filter directly to _build_where_clause
     where_clause, params = _build_where_clause(start_date=start_date, end_date=end_date, state_filter=state,
                                                main_table_alias='cl', address_table_alias='en')
@@ -666,16 +514,15 @@ def get_top_cities_by_state(start_date, end_date, state=None):
         LIMIT 10;
     """
     try:
-        df = pd.read_sql_query(query, conn, params=params)
+        df = pd.read_sql_query(query, database_config.engine, params=params)
         return df
-    except (pd.io.sql.DatabaseError, sqlite3.Error) as e:
+    except Exception as e:
         raise DatabaseError(f"Erro ao buscar top cidades: {e}") from e
 
 def get_data_health_summary():
     """
     Calcula a porcentagem de completude para campos chave.
     """
-    conn = get_db_connection()
     query = """
         SELECT
             COUNT(DISTINCT cl.id) as total_customers,
@@ -687,7 +534,7 @@ def get_data_health_summary():
         LEFT JOIN enderecos en ON cl.id = en.cliente_id AND en.tipo_endereco = 'Principal';
     """
     try:
-        df = pd.read_sql_query(query, conn)
+        df = pd.read_sql_query(query, database_config.engine)
         if df.empty or df['total_customers'][0] == 0:
             return {'email_completeness': 0, 'phone_completeness': 0, 'cep_completeness': 0}
         
@@ -697,14 +544,13 @@ def get_data_health_summary():
             'cep_completeness': (df['with_cep'][0] / df['total_customers'][0]) * 100
         }
         return summary
-    except (pd.io.sql.DatabaseError, sqlite3.Error) as e:
+    except Exception as e:
         raise DatabaseError(f"Erro ao calcular saúde dos dados: {e}") from e
 
 def get_incomplete_customers():
     """
     Busca clientes com informações chave faltando.
     """
-    conn = get_db_connection()
     query = """
         SELECT cl.id, cl.nome_completo, 
                CASE WHEN co.email_contato IS NULL OR co.email_contato = '' THEN 1 ELSE 0 END as missing_email,
@@ -717,9 +563,9 @@ def get_incomplete_customers():
         ORDER BY cl.id DESC;
     """
     try:
-        df = pd.read_sql_query(query, conn)
+        df = pd.read_sql_query(query, database_config.engine)
         return df
-    except (pd.io.sql.DatabaseError, sqlite3.Error) as e:
+    except Exception as e:
         raise DatabaseError(f"Erro ao buscar clientes incompletos: {e}") from e
 
 def df_to_csv(df: pd.DataFrame) -> bytes:
@@ -730,7 +576,6 @@ def get_customer_locations() -> pd.DataFrame:
     Busca as localizações (latitude e longitude) de todos os clientes.
     Retorna um DataFrame com 'id', 'latitude' e 'longitude'.
     """
-    conn = get_db_connection()
     query = """
         SELECT cl.id, en.latitude, en.longitude, cl.nome_completo, en.estado, en.cidade
         FROM clientes cl
@@ -738,7 +583,17 @@ def get_customer_locations() -> pd.DataFrame:
         WHERE en.latitude IS NOT NULL AND en.longitude IS NOT NULL;
     """
     try:
-        df = pd.read_sql_query(query, conn)
+        df = pd.read_sql_query(query, database_config.engine)
         return df
-    except (pd.io.sql.DatabaseError, sqlite3.Error) as e:
-        raise DatabaseError(f"Erro ao buscar localizações de clientes: {e}") from e
+    except Exception as e:
+         raise DatabaseError(f"Erro ao buscar localizações de clientes: {e}") from e
+
+def get_all_states() -> list:
+    """Retorna uma lista de todos os estados (UF) únicos presentes na base de dados."""
+    query = "SELECT DISTINCT estado FROM enderecos WHERE estado IS NOT NULL AND estado != '' ORDER BY estado"
+    try:
+        df = pd.read_sql_query(query, database_config.engine)
+        return df['estado'].tolist()
+    except Exception as e:
+        logging.error(f"Erro ao buscar estados: {e}")
+        return []

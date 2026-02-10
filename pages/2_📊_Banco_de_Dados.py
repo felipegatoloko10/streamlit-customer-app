@@ -124,9 +124,8 @@ with st.sidebar:
     search_query = st.text_input("Buscar por Nome ou CPF")
     
     try:
-        conn = database.get_db_connection()
-        all_states = pd.read_sql_query("SELECT DISTINCT estado FROM enderecos WHERE estado IS NOT NULL AND estado != '' ORDER BY estado", conn)
-        state_options = ["Todos"] + all_states['estado'].tolist()
+        all_states_list = database.get_all_states()
+        state_options = ["Todos"] + all_states_list
         state_filter = st.selectbox("Filtrar por Estado", options=state_options)
     except Exception:
         st.error("Filtros indisponíveis.")
