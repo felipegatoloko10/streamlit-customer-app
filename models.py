@@ -13,15 +13,21 @@ def get_models_module():
     it executes only once. Subsequent calls return the same module object,
     preserving the identity of SQLModel classes and avoiding re-registration errors.
     """
-    # We must ensure models_src is imported fresh the first time, 
-    # but since this function runs once, standard import is fine.
-    # If the user edits models_src.py, they must clear cache or restart app.
+    from sqlalchemy.orm import clear_mappers
+    from sqlmodel import SQLModel
+    from database_config import engine
+    
+    # Clear any existing mappers to avoid "Mapper already exists" errors on reload
+    clear_mappers()
+    
+    # Reset metadata to avoid duplicate table definitions in memory
+    SQLModel.metadata.clear()
+    
     import models_src
     
     # Ensure tables exist. This is the best place because it runs once per session
     # and after models are defined.
-    from database_config import create_db_and_tables
-    create_db_and_tables()
+    SQLModel.metadata.create_all(engine)
     
     return models_src
 
