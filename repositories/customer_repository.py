@@ -126,10 +126,8 @@ class CustomerRepository(BaseRepository[Cliente]):
     def count_customers(self, search_query: str = None, state_filter: str = None) -> int:
         from sqlmodel import func, select
         
-        # Build the count statement
-        # Using select(func.count(distinct(Cliente.id))) is more standard
-        from sqlalchemy import distinct
-        statement = select(func.count(distinct(Cliente.id)))
+        # Simplified count statement
+        statement = select(func.count(Cliente.id))
 
         if state_filter and state_filter != "Todos":
              statement = statement.join(Endereco).where(Endereco.tipo_endereco == 'Principal', Endereco.estado == state_filter)

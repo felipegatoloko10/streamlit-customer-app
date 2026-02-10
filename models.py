@@ -1,6 +1,5 @@
 
 import streamlit as st
-import importlib
 from sqlalchemy.orm import clear_mappers
 from sqlmodel import SQLModel
 from database_config import engine
@@ -9,32 +8,38 @@ from database_config import engine
 # It ensures that models are defined safely per Streamlit server session.
 
 @st.cache_resource
-def get_models_module():
+def get_models():
     """
-    Initializes and returns the models_src module.
-    We clear mappers and reload the module to ensure that SQLModel classes
-    are correctly registered with the current metadata and registry.
+    Imports models_src and ensures they are registered only once.
+    Using clear_mappers() before import to ensure a clean state.
     """
-    # Clear any existing mappers to avoid conflicts across reloads
     clear_mappers()
     
-    # Import and reload the source module to re-register classes
+    # Reset metadata to avoid duplicate table definitions in memory
+    # but keep the same registry if possible.
     import models_src
-    importlib.reload(models_src)
     
     # Ensure tables exist
     SQLModel.metadata.create_all(engine)
     
-    return models_src
+    return {
+        "Cliente": models_src.Cliente,
+        "Contato": models_src.Contato,
+        "Endereco": models_src.Endereco,
+        "AuditLog": models_src.AuditLog,
+        "ClienteBase": models_src.ClienteBase,
+        "ContatoBase": models_src.ContatoBase,
+        "EnderecoBase": models_src.EnderecoBase
+    }
 
-# Get the cached module
-_models = get_models_module()
+# Get the cached models dictionary
+_m = get_models()
 
-# Re-export all model classes so other files can import from 'models' normally
-ClienteBase = _models.ClienteBase
-Cliente = _models.Cliente
-ContatoBase = _models.ContatoBase
-Contato = _models.Contato
-EnderecoBase = _models.EnderecoBase
-Endereco = _models.Endereco
-AuditLog = _models.AuditLog
+# Re-export all model classes
+Cliente = _m["Cliente"]
+Contato = _m["Contato"]
+Endereco = _m["Endereco"]
+AuditLog = _m["AuditLog"]
+ClienteBase = _m["ClienteBase"]
+ContatoBase = _m["ContatoBase"]
+EnderecoBase = _m["EnderecoBase"]
