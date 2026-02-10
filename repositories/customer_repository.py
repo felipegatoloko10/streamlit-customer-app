@@ -124,10 +124,12 @@ class CustomerRepository(BaseRepository[Cliente]):
         return results
 
     def count_customers(self, search_query: str = None, state_filter: str = None) -> int:
-        # Para count, infelizmente select(func.count(Cliente.id)) pode ser complexo com distinct e joins em SQLModel/SQLAlchemy
-        # Vamos construir a query de count
-        from sqlmodel import func
-        statement = select(func.count(Cliente.id.distinct()))
+        from sqlmodel import func, select
+        
+        # Build the count statement
+        # Using select(func.count(distinct(Cliente.id))) is more standard
+        from sqlalchemy import distinct
+        statement = select(func.count(distinct(Cliente.id)))
 
         if state_filter and state_filter != "Todos":
              statement = statement.join(Endereco).where(Endereco.tipo_endereco == 'Principal', Endereco.estado == state_filter)
