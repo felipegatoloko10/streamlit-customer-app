@@ -1,6 +1,7 @@
 from typing import List, Optional
 from sqlmodel import Session, select
 from sqlalchemy.orm import selectinload
+from sqlalchemy import text
 from models import Cliente, Contato, Endereco, AuditLog
 from repositories.base import BaseRepository
 import json
@@ -142,12 +143,12 @@ class CustomerRepository(BaseRepository[Cliente]):
 
     def get_unique_states(self) -> List[str]:
         """Retorna lista de estados únicos dos endereços principais."""
-        query = """
+        query = text("""
             SELECT DISTINCT estado 
             FROM enderecos 
             WHERE tipo_endereco = 'Principal' AND estado IS NOT NULL
             ORDER BY estado;
-        """
+        """)
         return pd.read_sql_query(query, self.session.connection())['estado'].tolist()
 
     def get_new_customers_timeseries(self, start_date, end_date, period='M') -> pd.DataFrame:
@@ -158,31 +159,28 @@ class CustomerRepository(BaseRepository[Cliente]):
         else:
             date_format = '%Y-%m'
             
-        # SQLModel/SQLAlchemy text construction might be needed if using complex raw SQL
-        # But read_sql with connection works with raw strings too
-        query = f"""
+        query = text(f"""
             SELECT 
                 strftime('{date_format}', data_cadastro) as time_period,
                 COUNT(id) as count
             FROM clientes
-            WHERE data_cadastro BETWEEN ? AND ?
+            WHERE data_cadastro BETWEEN :start_date AND :end_date
             GROUP BY time_period
             ORDER BY time_period;
-        """
-        # params must be list or tuple
-        return pd.read_sql_query(query, self.session.connection(), params=[start_date, end_date])
+        """)
+        return pd.read_sql_query(query, self.session.connection(), params={"start_date": start_date, "end_date": end_date})
 
     def get_customer_locations(self) -> pd.DataFrame:
-        query = """
+        query = text("""
             SELECT cl.id, en.latitude, en.longitude, cl.nome_completo, en.estado, en.cidade
             FROM clientes cl
             JOIN enderecos en ON cl.id = en.cliente_id
             WHERE en.latitude IS NOT NULL AND en.longitude IS NOT NULL;
-        """
+        """)
         return pd.read_sql_query(query, self.session.connection())
 
     def get_data_health_summary(self) -> dict:
-        query = """
+        query = text("""
             SELECT
                 COUNT(DISTINCT cl.id) as total_customers,
                 COUNT(CASE WHEN co.email_contato IS NOT NULL AND co.email_contato != '' THEN 1 END) as with_email,
@@ -191,7 +189,7 @@ class CustomerRepository(BaseRepository[Cliente]):
             FROM clientes cl
             LEFT JOIN contatos co ON cl.id = co.cliente_id AND co.tipo_contato = 'Principal'
             LEFT JOIN enderecos en ON cl.id = en.cliente_id AND en.tipo_endereco = 'Principal';
-        """
+        """)
         df = pd.read_sql_query(query, self.session.connection())
         if df.empty or df['total_customers'][0] == 0:
             return {'email_completeness': 0, 'phone_completeness': 0, 'cep_completeness': 0}
@@ -204,7 +202,7 @@ class CustomerRepository(BaseRepository[Cliente]):
         return summary
 
     def get_incomplete_customers(self) -> pd.DataFrame:
-        query = """
+        query = text("""
             SELECT cl.id, cl.nome_completo, 
                    CASE WHEN co.email_contato IS NULL OR co.email_contato = '' THEN 1 ELSE 0 END as missing_email,
                    CASE WHEN co.telefone IS NULL OR co.telefone = '' THEN 1 ELSE 0 END as missing_phone,
@@ -214,6 +212,6 @@ class CustomerRepository(BaseRepository[Cliente]):
             LEFT JOIN enderecos en ON cl.id = en.cliente_id AND en.tipo_endereco = 'Principal'
             WHERE missing_email = 1 OR missing_phone = 1 OR missing_cep = 1
             ORDER BY cl.id DESC;
-        """
+        """)
         return pd.read_sql_query(query, self.session.connection())
 
