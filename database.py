@@ -2,7 +2,7 @@ import pandas as pd
 import streamlit as st
 import logging
 import validators
-import services
+import integration_services as services
 import backup_manager
 import datetime
 import json

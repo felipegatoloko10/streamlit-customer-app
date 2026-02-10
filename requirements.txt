@@ -166,3 +166,5 @@ validate-docbr==1.11.1
 watchdog==6.0.0
     # via streamlit
 Faker
+sqlmodel
+alembic
