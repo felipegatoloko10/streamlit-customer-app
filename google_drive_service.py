@@ -44,6 +44,36 @@ def get_credentials():
         return creds
     return None
 
+def get_auth_url():
+    """Retorna a URL de autorização para o usuário clicar."""
+    if not os.path.exists(CREDENTIALS_FILE):
+        return None
+    flow = InstalledAppFlow.from_client_secrets_file(
+        CREDENTIALS_FILE, 
+        SCOPES,
+        redirect_uri='urn:ietf:wg:oauth:2.0:oob'
+    )
+    auth_url, _ = flow.authorization_url(prompt='consent')
+    return auth_url
+
+def finalize_manual_auth(auth_code):
+    """Finaliza a autenticação usando o código colado pelo usuário."""
+    try:
+        flow = InstalledAppFlow.from_client_secrets_file(
+            CREDENTIALS_FILE, 
+            SCOPES,
+            redirect_uri='urn:ietf:wg:oauth:2.0:oob'
+        )
+        flow.fetch_token(code=auth_code)
+        creds = flow.credentials
+        
+        with open(TOKEN_FILE, 'wb') as token:
+            pickle.dump(creds, token)
+        return True
+    except Exception as e:
+        st.error(f"Erro ao validar código: {e}")
+        return False
+
 def initiate_authentication():
     """
     Inicia o fluxo de autenticação automático e interativo.

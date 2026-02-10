@@ -145,12 +145,23 @@ try:
             if not creds_exist:
                 st.caption("O botão de conexão será habilitado após o upload do `credentials.json` no Passo 1.")
             
-            if st.button("Conectar ao Google Drive", type="primary", use_container_width=True, disabled=not creds_exist):
-                with st.spinner("Aguardando autorização no seu navegador..."):
-                    auth_successful = google_drive_service.initiate_authentication()
-                if auth_successful:
-                    st.success("Conexão estabelecida! Recarregando a página...")
-                    st.rerun()
+            # Novo fluxo de autenticação manual para nuvem
+            if creds_exist:
+                auth_url = google_drive_service.get_auth_url()
+                st.markdown(f"1. [Clique aqui para autorizar o acesso ao Google Drive]({auth_url})")
+                st.write("2. Faça login, copie o **código** que o Google fornecer e cole abaixo:")
+                
+                auth_code = st.text_input("Cole o código de autorização aqui:", key="gdrive_auth_code")
+                
+                if st.button("Confirmar Conexão", type="primary", use_container_width=True):
+                    if auth_code:
+                        with st.spinner("Validando conexão..."):
+                            success = google_drive_service.finalize_manual_auth(auth_code)
+                        if success:
+                            st.success("Conexão estabelecida!")
+                            st.rerun()
+                    else:
+                        st.warning("Por favor, insira o código de autorização.")
             
             st.markdown("---")
             with st.expander("Instruções detalhadas para gerar o `credentials.json`"):
