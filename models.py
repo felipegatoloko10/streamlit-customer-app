@@ -1,72 +1,34 @@
-from typing import Optional, List
-from datetime import date, datetime
-from sqlmodel import Field, Relationship, SQLModel
-from sqlalchemy.orm import clear_mappers
 
-# Fix for Streamlit cloud: Force full reset of Mappers and Metadata on reload
-# This prevents "Table already defined" AND Mapper configuration errors
-try:
-    clear_mappers()
-    SQLModel.metadata.clear()
-except Exception:
-    pass
+import streamlit as st
+import sys
+import importlib
 
-class ClienteBase(SQLModel):
-    nome_completo: str
-    tipo_documento: str
-    cpf: Optional[str] = Field(default=None, unique=True)
-    cnpj: Optional[str] = Field(default=None, unique=True)
-    data_nascimento: Optional[date] = None
-    observacao: Optional[str] = None
-    data_cadastro: Optional[date] = Field(default_factory=date.today)
+# This file acts as a Singleton Proxy for the actual models definition.
+# It ensures that models are defined ONLY ONCE per Streamlit server session,
+# preventing "Table already defined" errors and Mapper Configuration issues on reloads.
 
-class Cliente(ClienteBase, table=True):
-    __tablename__ = "clientes"
-    id: Optional[int] = Field(default=None, primary_key=True)
-    
-    contatos: List["Contato"] = Relationship(back_populates="cliente")
-    enderecos: List["Endereco"] = Relationship(back_populates="cliente")
+@st.cache_resource
+def get_models_module():
+    """
+    Imports and returns the models_src module.
+    Because this function is cached with st.cache_resource,
+    it executes only once. Subsequent calls return the same module object,
+    preserving the identity of SQLModel classes and avoiding re-registration errors.
+    """
+    # We must ensure models_src is imported fresh the first time, 
+    # but since this function runs once, standard import is fine.
+    # If the user edits models_src.py, they must clear cache or restart app.
+    import models_src
+    return models_src
 
-class ContatoBase(SQLModel):
-    nome_contato: Optional[str] = None
-    telefone: Optional[str] = None
-    email_contato: Optional[str] = None
-    cargo_contato: Optional[str] = None
-    tipo_contato: Optional[str] = None  # 'Principal', 'Secundário'
+# Get the cached module
+_models = get_models_module()
 
-class Contato(ContatoBase, table=True):
-    __tablename__ = "contatos"
-    id: Optional[int] = Field(default=None, primary_key=True)
-    cliente_id: int = Field(foreign_key="clientes.id")
-    
-    cliente: Cliente = Relationship(back_populates="contatos")
-
-class EnderecoBase(SQLModel):
-    cep: Optional[str] = None
-    logradouro: Optional[str] = None
-    numero: Optional[str] = None
-    complemento: Optional[str] = None
-    bairro: Optional[str] = None
-    cidade: Optional[str] = None
-    estado: Optional[str] = None
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
-    tipo_endereco: Optional[str] = None # 'Principal'
-
-class Endereco(EnderecoBase, table=True):
-    __tablename__ = "enderecos"
-    id: Optional[int] = Field(default=None, primary_key=True)
-    cliente_id: int = Field(foreign_key="clientes.id")
-    
-    cliente: Cliente = Relationship(back_populates="enderecos")
-
-class AuditLog(SQLModel, table=True):
-    __tablename__ = "audit_logs"
-    id: Optional[int] = Field(default=None, primary_key=True)
-    timestamp: datetime = Field(default_factory=datetime.now)
-    entidade: str
-    entidade_id: int
-    acao: str # 'INSERT', 'UPDATE', 'DELETE'
-    dados_anteriores: Optional[str] = None # JSON string
-    dados_novos: Optional[str] = None # JSON string
-    usuario: str = Field(default="Sistema")
+# Re-export all model classes so other files can import from 'models' normally
+ClienteBase = _models.ClienteBase
+Cliente = _models.Cliente
+ContatoBase = _models.ContatoBase
+Contato = _models.Contato
+EnderecoBase = _models.EnderecoBase
+Endereco = _models.Endereco
+AuditLog = _models.AuditLog
