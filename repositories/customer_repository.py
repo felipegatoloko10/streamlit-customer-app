@@ -114,6 +114,7 @@ class CustomerRepository(BaseRepository[Cliente]):
 
     def delete_customer(self, customer_id: int) -> bool:
         try:
+            # Busca o cliente com relacionamentos para garantir que a cascata funcione
             cliente = self.get(customer_id)
             if not cliente:
                 return False

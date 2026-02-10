@@ -16,8 +16,14 @@ class Cliente(ClienteBase, table=True):
     __table_args__ = {"extend_existing": True}
     id: Optional[int] = Field(default=None, primary_key=True)
     
-    contatos: List["Contato"] = Relationship(back_populates="cliente")
-    enderecos: List["Endereco"] = Relationship(back_populates="cliente")
+    contatos: List["Contato"] = Relationship(
+        back_populates="cliente", 
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+    enderecos: List["Endereco"] = Relationship(
+        back_populates="cliente", 
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
 
 class ContatoBase(SQLModel):
     nome_contato: Optional[str] = None
