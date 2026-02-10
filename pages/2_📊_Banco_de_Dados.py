@@ -1,13 +1,12 @@
 import streamlit as st
 import pandas as pd
-import database
 import datetime
 
 import math
 import logging
 import urllib.parse
 import integration_services as services
-from services.customer_service import CustomerService
+from services.customer_service import CustomerService, DatabaseError, DuplicateEntryError
 import base64
 
 # Inicializa o serviço
@@ -183,7 +182,7 @@ with st.sidebar:
 def show_customer_details(customer_id):
     try:
         customer = customer_service.get_customer_details(customer_id)
-    except database.DatabaseError as e:
+    except DatabaseError as e:
         st.error(f"Erro ao buscar dados do cliente: {e}")
         customer = None
 
@@ -248,7 +247,7 @@ def show_customer_details(customer_id):
                         st.session_state.edited_data = {}
                         st.rerun()
 
-                    except (database.DatabaseError, database.DuplicateEntryError) as e:
+                    except (DatabaseError, DuplicateEntryError) as e:
                         st.session_state['db_status'] = {'success': False, 'message': str(e)}
                         st.rerun()
 
@@ -277,7 +276,7 @@ def show_customer_details(customer_id):
                                 st.session_state.confirming_delete = False
                                 del st.session_state.selected_customer_id
                                 st.rerun()
-                            except database.DatabaseError as e:
+                            except DatabaseError as e:
                                 st.session_state['db_status'] = {'success': False, 'message': str(e)}
                                 st.session_state.confirming_delete = False
                                 st.rerun()

@@ -1,13 +1,12 @@
 import streamlit as st
 import datetime
-import database
 import validators
 import requests
 import re
 import base64
 import os
 import integration_services as services
-from services.customer_service import CustomerService
+from services.customer_service import CustomerService, DatabaseError
 
 st.set_page_config(page_title="Cadastro de Clientes", page_icon="📝", layout="centered")
 
@@ -217,7 +216,7 @@ with col_submit:
                 customer_service.create_customer(customer_data)
                 st.session_state.user_message = {"type": "success", "text": "Cliente salvo com sucesso!"}
                 st.session_state.submission_success = True
-            except (validators.ValidationError, database.DatabaseError) as e:
+            except (validators.ValidationError, DatabaseError) as e:
                 st.session_state.user_message = {"type": "error", "text": f"Erro ao salvar: {e}"}
             except Exception as e:
                 st.session_state.user_message = {"type": "error", "text": f"Ocorreu um erro inesperado: {e}"}

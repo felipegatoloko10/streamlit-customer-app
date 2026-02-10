@@ -9,6 +9,15 @@ import logging
 import backup_manager
 import datetime
 
+class DatabaseError(Exception):
+    """Exceção base para erros de banco de dados."""
+    pass
+
+class DuplicateEntryError(DatabaseError):
+    """Exceção para entradas duplicadas (CPF/CNPJ)."""
+    pass
+
+
 class CustomerService:
     def __init__(self):
         self.engine = engine

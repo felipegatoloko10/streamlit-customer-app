@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import database as db
 import pydeck as pdk
 import json
 import datetime
