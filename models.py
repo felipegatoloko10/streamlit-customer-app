@@ -19,6 +19,12 @@ def get_models_module():
     # but since this function runs once, standard import is fine.
     # If the user edits models_src.py, they must clear cache or restart app.
     import models_src
+    
+    # Ensure tables exist. This is the best place because it runs once per session
+    # and after models are defined.
+    from database_config import create_db_and_tables
+    create_db_and_tables()
+    
     return models_src
 
 # Get the cached module
