@@ -6,8 +6,12 @@ import datetime
 import math
 import logging
 import urllib.parse
-import services
+import integration_services as services
+from services.customer_service import CustomerService
 import base64
+
+# Inicializa o serviço
+customer_service = CustomerService()
 import os
 import validators
 
@@ -124,7 +128,7 @@ with st.sidebar:
     search_query = st.text_input("Buscar por Nome ou CPF")
     
     try:
-        all_states_list = database.get_all_states()
+        all_states_list = customer_service.get_unique_states()
         state_options = ["Todos"] + all_states_list
         state_filter = st.selectbox("Filtrar por Estado", options=state_options)
     except Exception:
@@ -169,7 +173,7 @@ with st.sidebar:
 
     st.markdown("---")
     page_size = st.selectbox("Itens por página", options=[10, 25, 50, 100], index=0)
-    total_records = database.count_total_records(search_query, state_filter)
+    total_records = customer_service.count_customers(search_query, state_filter)
     total_pages = math.ceil(total_records / page_size) if total_records > 0 else 1
     page_number = st.number_input('Página', min_value=1, max_value=total_pages, value=1, step=1)
     st.markdown("---")
@@ -178,7 +182,7 @@ with st.sidebar:
 
 def show_customer_details(customer_id):
     try:
-        customer = database.get_customer_by_id(customer_id)
+        customer = customer_service.get_customer_details(customer_id)
     except database.DatabaseError as e:
         st.error(f"Erro ao buscar dados do cliente: {e}")
         customer = None
@@ -237,7 +241,7 @@ def show_customer_details(customer_id):
                         st.session_state.edited_data['latitude'] = latitude
                         st.session_state.edited_data['longitude'] = longitude
 
-                        database.update_customer(customer_id, st.session_state.edited_data)
+                        customer_service.update_customer(customer_id, st.session_state.edited_data)
                         st.session_state['db_status'] = {'success': True, 'message': "Cliente atualizado com sucesso!"}
                         
                         st.session_state.edit_mode = False
@@ -268,7 +272,7 @@ def show_customer_details(customer_id):
                     with c1:
                         if st.button("Sim, excluir permanentemente", type="primary", use_container_width=True):
                             try:
-                                database.delete_customer(customer_id)
+                                customer_service.delete_customer(customer_id)
                                 st.session_state['db_status'] = {'success': True, 'message': "Cliente excluído com sucesso!"}
                                 st.session_state.confirming_delete = False
                                 del st.session_state.selected_customer_id
@@ -347,7 +351,8 @@ def show_customer_details(customer_id):
             st.rerun()
 
 def show_customer_grid(search_query, state_filter, page_number, page_size, total_records, total_pages, selected_columns, column_labels_map):
-    df_page = database.fetch_data(search_query, state_filter, page_number, page_size)
+    grid_data = customer_service.get_customer_grid_data(search_query, state_filter, page_number, page_size)
+    df_page = pd.DataFrame(grid_data)
     if not df_page.empty:
         st.info("Selecione um cliente na tabela para ver seus detalhes completos.")
         

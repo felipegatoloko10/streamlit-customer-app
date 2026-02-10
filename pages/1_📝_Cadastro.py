@@ -6,9 +6,13 @@ import requests
 import re
 import base64
 import os
-import services
+import integration_services as services
+from services.customer_service import CustomerService
 
 st.set_page_config(page_title="Cadastro de Clientes", page_icon="📝", layout="centered")
+
+# Inicializa o serviço
+customer_service = CustomerService()
 
 # Exibe o status da nuvem na sidebar
 services.show_cloud_status()
@@ -210,7 +214,7 @@ with col_submit:
                 st.warning("⚠️ Não foi possível localizar as coordenadas geográficas deste endereço. O cliente será salvo, mas não aparecerá no mapa.")
 
             try:
-                database.insert_customer(customer_data)
+                customer_service.create_customer(customer_data)
                 st.session_state.user_message = {"type": "success", "text": "Cliente salvo com sucesso!"}
                 st.session_state.submission_success = True
             except (validators.ValidationError, database.DatabaseError) as e:

@@ -1,5 +1,5 @@
 import streamlit as st
-import services
+import integration_services as services
 
 st.set_page_config(
     page_title="Emitir NFS-e",

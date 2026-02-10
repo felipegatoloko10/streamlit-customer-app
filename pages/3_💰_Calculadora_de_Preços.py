@@ -2,7 +2,7 @@ import streamlit as st
 import json
 import os
 from streamlit_modal import Modal
-import services
+import integration_services as services
 
 st.set_page_config(page_title="Calculadora de Preços", page_icon="💰", layout="centered")
 

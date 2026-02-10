@@ -7,7 +7,7 @@ import sqlite3
 import google_drive_service
 import backup_manager
 
-import services
+import integration_services as services
 
 # --- Configurações da Página e Constantes ---
 st.set_page_config(page_title="Backup e Restauração", layout="centered")
