@@ -16,6 +16,10 @@ Sistema completo de gestão de clientes desenvolvido em Python com Streamlit, ag
   - Exportação e Importação em **JSON** e **CSV**.
   - Backup automático e manual para **Google Drive**.
 - **Infraestrutura:** Conexão otimizada via AWS Pooler para maior estabilidade.
+- **Notificações por E-mail:**
+  - Envio automático de alerta para administrador ao cadastrar novo cliente.
+  - Opção de "Receber Atualizações" no cadastro do cliente.
+  - Configuração de credenciais SMTP (Gmail) direto na interface.
 
 ## 📋 Features
 
@@ -26,6 +30,7 @@ Sistema completo de gestão de clientes desenvolvido em Python com Streamlit, ag
 - ✅ **Mapas Interativos** com PyDeck (distribuição geográfica).
 - ✅ **Restauração Inteligente:** Importação de backups verificando duplicidades.
 - ✅ **Integração WhatsApp** com links diretos.
+- ✅ **Notificações Automáticas:** Alertas por e-mail para novos cadastros.
 
 ## 🏗️ Arquitetura
 
@@ -93,6 +98,15 @@ streamlit-customer-app/
 ## 🔧 Configuração de Backup (Google Drive)
 
 Para habilitar o backup em nuvem, obtenha o arquivo `credentials.json` no Console do Google Cloud (API Drive) e faça o upload na página de "Backup".
+
+## 📧 Configuração de E-mail
+
+O sistema suporta envio de notificações via SMTP (focado no Gmail).
+
+1. Acesse a página **💾 Backup**.
+2. Vá até a seção **Configuração de Notificações por E-mail**.
+3. Insira seu e-mail e a **Senha de App** (gerada nas configurações de segurança do Google).
+4. O sistema salvará as credenciais localmente em `email_config.json`.
 
 ## ⚡ Infraestrutura e Manutenção
 
