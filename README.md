@@ -94,6 +94,15 @@ streamlit-customer-app/
 
 Para habilitar o backup em nuvem, obtenha o arquivo `credentials.json` no Console do Google Cloud (API Drive) e faça o upload na página de "Backup".
 
+## ⚡ Infraestrutura e Manutenção
+
+### Evitar Hibernação (Streamlit Cloud)
+
+O projeto inclui um workflow do GitHub Actions (`.github/workflows/keep_awake.yml`) configurado para evitar que a aplicação entre em modo de hibernação no Streamlit Cloud.
+
+- **Funcionamento:** O workflow executa um `curl` na URL da aplicação diariamente às 12:00 UTC.
+- **Configuração:** A URL alvo está definida diretamente no arquivo do workflow.
+
 ## 🤝 Contribuindo
 
 1. Faça um Fork do projeto
