@@ -242,15 +242,17 @@ class CustomerRepository(BaseRepository[Cliente]):
 
     def get_incomplete_customers(self) -> pd.DataFrame:
         query = text("""
-            SELECT cl.id, cl.nome_completo, 
-                   CASE WHEN co.email_contato IS NULL OR co.email_contato = '' THEN 1 ELSE 0 END as missing_email,
-                   CASE WHEN co.telefone IS NULL OR co.telefone = '' THEN 1 ELSE 0 END as missing_phone,
-                   CASE WHEN en.cep IS NULL OR en.cep = '' THEN 1 ELSE 0 END as missing_cep
-            FROM clientes cl
-            LEFT JOIN contatos co ON cl.id = co.cliente_id AND co.tipo_contato = 'Principal'
-            LEFT JOIN enderecos en ON cl.id = en.cliente_id AND en.tipo_endereco = 'Principal'
+            SELECT * FROM (
+                SELECT cl.id, cl.nome_completo, 
+                       CASE WHEN co.email IS NULL OR co.email = '' THEN 1 ELSE 0 END as missing_email,
+                       CASE WHEN co.telefone IS NULL OR co.telefone = '' THEN 1 ELSE 0 END as missing_phone,
+                       CASE WHEN en.cep IS NULL OR en.cep = '' THEN 1 ELSE 0 END as missing_cep
+                FROM clientes cl
+                LEFT JOIN contatos co ON cl.id = co.cliente_id AND co.tipo_contato = 'Principal'
+                LEFT JOIN enderecos en ON cl.id = en.cliente_id AND en.tipo_endereco = 'Principal'
+            ) as sub
             WHERE missing_email = 1 OR missing_phone = 1 OR missing_cep = 1
-            ORDER BY cl.id DESC;
+            ORDER BY id DESC;
         """)
         return pd.read_sql_query(query, self.session.connection())
 
