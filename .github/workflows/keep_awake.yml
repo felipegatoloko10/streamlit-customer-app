@@ -1,0 +1,18 @@
+name: Keep Streamlit Awake
+
+on:
+  schedule:
+    # Executa a cada 24 horas (ex: 09:00 UTC) para renovar o contador de 7 dias do Streamlit
+    # Streamlit Cloud hiberna após 7 dias sem acesso. Um ping diário é suficiente e economiza recursos do GitHub.
+    - cron: '0 12 * * *' 
+  workflow_dispatch: # Permite execução manual
+
+jobs:
+  wake_up:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wake up Streamlit App
+        # Substituímos a action de terceiros por um comando curl nativo (mais seguro e rápido)
+        # Substitua SUA_URL_AQUI pela URL real do seu app
+        run: |
+          curl -I https://felipegatoloko10-streamlit-customer-app-home-8k728j.streamlit.app/ || echo "Falha no ping, mas completou workflow"
