@@ -3,7 +3,10 @@ import json
 import streamlit as st
 import google_drive_service
 import datetime
-from services.customer_service import CustomerService
+import pandas as pd
+import io
+
+# from services.customer_service import CustomerService  <-- REMOVIDO PARA EVITAR CIRCULAR IMPORT
 
 BACKUP_COUNTER_FILE = "backup_counter.json"
 BACKUP_CONFIG_FILE = "backup_config.json"
@@ -48,20 +51,11 @@ def save_backup_config(threshold):
 
 def _generate_json_export():
     """Gera um arquivo JSON com todos os dados dos clientes."""
+    from services.customer_service import CustomerService
     service = CustomerService()
-    # Usando paginação grande para pegar tudo (limit 10000) ou criar método .all() no repo.
-    # Vamos usar list_customers com limite alto.
-    # Idealmente, criar um método export_all no repo.
-    # Por enquanto, vamos iterar ou aumentar o limite.
-    # Vamos assumir que 10000 é suficiente por enquanto ou paginar.
-    all_customers = service.get_customer_grid_data(page_size=10000) 
-    # Note: get_customer_grid_data retorna dicts formatados para UI.
-    # Para backup puro, seria melhor o model_dump raw.
-    # Vamos usar o que temos para simplicidade de restauração futura (embora raw fosse melhor).
     
-    # Melhor abordagem: exportar usando pandas do repository para garantir dados crus?
-    # Ou criar um método getAll no service.
-    # Vamos deixar simples: exportar o grid data por enquanto.
+    # Usando paginação grande para pegar tudo
+    all_customers = service.get_customer_grid_data(page_size=10000) 
     
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     filename = f"customers_backup_{timestamp}.json"
@@ -75,11 +69,6 @@ def _perform_gdrive_backup():
     """Gera JSON e faz upload para o Drive."""
     try:
         json_file = _generate_json_export()
-        
-        # Nome no Drive (sobrescreve o anterior ou cria novo versionado?)
-        # Vamos manter um nome fixo para "último backup" ou adicionar data?
-        # A função original usava 'customers_backup.db'.
-        # Vamos usar 'customers_full_backup.json' para manter único e atualizar versões no Drive se configurado assim.
         
         google_drive_service.upload_file_to_drive(json_file, DRIVE_BACKUP_FILE_NAME)
         st.toast("Backup (Exportação JSON) para Google Drive concluído!", icon="✅")
@@ -95,8 +84,8 @@ def _perform_gdrive_backup():
 
 def increment_and_check_backup():
     """Verifica contagem e dispara backup se necessário."""
-    import google_drive_service
     import logging
+    from services.customer_service import CustomerService
 
     if not os.path.exists(google_drive_service.TOKEN_FILE):
         return 0
@@ -119,13 +108,9 @@ def increment_and_check_backup():
         
     return current_count
 
-import pandas as pd
-import io
-
-# ... imports existing ...
-
 def _generate_csv_export():
     """Gera um arquivo CSV com todos os dados dos clientes."""
+    from services.customer_service import CustomerService
     service = CustomerService()
     all_customers = service.get_customer_grid_data(page_size=10000)
     
@@ -133,6 +118,7 @@ def _generate_csv_export():
     filename = f"customers_backup_{timestamp}.csv"
     
     df = pd.DataFrame(all_customers)
+    # Força ponto e vírgula para abrir fácil no Excel pt-BR, e utf-8-sig para acentos
     df.to_csv(filename, index=False, encoding='utf-8-sig', sep=';')
     
     return filename
@@ -141,10 +127,12 @@ def generate_local_export(format='json'):
     """Gera o arquivo de exportação localmente e retorna o caminho."""
     if format.lower() == 'csv':
         return _generate_csv_export()
+    # Default json
     return _generate_json_export()
 
 def restore_data(file_path: str, format: str):
     """Restaura dados a partir de um arquivo JSON ou CSV."""
+    from services.customer_service import CustomerService
     service = CustomerService()
     success_count = 0
     error_count = 0
@@ -156,9 +144,14 @@ def restore_data(file_path: str, format: str):
             with open(file_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
         elif format.lower() == 'csv':
-            # Detecção de separador simples ou fixo em ';'
+            # Tenta ler com separador ; primeiro (padrão do nosso export)
             try:
                 df = pd.read_csv(file_path, sep=';')
+                # Se só tiver 1 coluna, pode ser que o separador seja vírgula
+                if df.shape[1] == 1:
+                     df_comma = pd.read_csv(file_path, sep=',')
+                     if df_comma.shape[1] > 1:
+                         df = df_comma
             except:
                 df = pd.read_csv(file_path, sep=',')
             
@@ -168,25 +161,23 @@ def restore_data(file_path: str, format: str):
         
         for item in data:
             try:
-                # Remove campos que não devem ser passados para criação (como ID, link_wpp)
-                # O create_customer ignora chaves extras? Não, ele usa .get().
-                # Mas é bom limpar para garantir.
-                # O create_customer espera 'endereco' para logradouro.
-                # O get_customer_grid_data retorna 'endereco' com o logradouro, então deve casar.
-                
-                # Tratamento de ID: removemos para criar novos registros
+                # Tratamento de ID: removemos para criar novos registros no Postgres
                 if 'id' in item:
                     del item['id']
+                
+                # Adaptação de campos se necessário (ex: renomear colunas do CSV se vierem diferentes)
+                # Assumindo que o CSV tem os mesmos nomes de colunas que as chaves do dict do service
                 
                 service.create_customer(item)
                 success_count += 1
             except Exception as e:
                 # Se for duplicado, apenas conta como erro/ignorado
-                if "já existe" in str(e) or "DuplicateEntryError" in str(e):
-                    # Opcional: tentar update? Por hora, apenas skip.
+                # Verifica erro de duplicidade do Postgres/Supabase
+                if "duplicate key value violates unique constraint" in str(e) or "already exists" in str(e):
                     pass
+                else:
+                     errors.append(f"Erro no item {item.get('nome_completo', 'Desconhecido')}: {str(e)}")
                 error_count += 1
-                errors.append(f"Erro no item {item.get('nome_completo', 'Desconhecido')}: {str(e)}")
 
         return {
             "success": True,
@@ -202,7 +193,6 @@ def restore_data(file_path: str, format: str):
         }
 
 def trigger_manual_backup():
-    """Manual trigger."""
+    """Dispara backup manual para o Google Drive."""
     with st.spinner("Gerando exportação e enviando para o Drive..."):
         _perform_gdrive_backup()
-

@@ -168,3 +168,4 @@ watchdog==6.0.0
 Faker
 sqlmodel
 alembic
+psycopg2-binary
