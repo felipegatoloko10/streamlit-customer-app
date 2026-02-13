@@ -242,3 +242,56 @@ try:
 except Exception as e:
     st.error(f"Ocorreu um erro fatal na página de Backup: {e}")
     st.exception(e)
+
+# --- Seção 3: Configuração de Notificações por E-mail ---
+st.markdown("---")
+st.header("📧 Configuração de Notificações por E-mail")
+
+email_config_file = 'email_config.json'
+current_config = {}
+
+if os.path.exists(email_config_file):
+    try:
+        with open(email_config_file, 'r') as f:
+            current_config = json.load(f)
+    except:
+        pass
+
+with st.form("email_config_form"):
+    st.info("Configure o envio de e-mails para receber notificações quando um novo cliente for cadastrado.")
+    
+    sender_email = st.text_input("E-mail do Remetente (Gmail)", value=current_config.get('sender_email', ''))
+    app_password = st.text_input("Senha de App do Google", type="password", value=current_config.get('password', ''), help="Não é a sua senha normal. É uma senha de 16 caracteres gerada no Google.")
+    
+    smtp_server = st.text_input("Servidor SMTP", value=current_config.get('smtp_server', 'smtp.gmail.com'))
+    smtp_port = st.text_input("Porta SMTP", value=current_config.get('smtp_port', '587'))
+    
+    app_base_url = st.text_input("URL Base do App (para links)", value=current_config.get('app_base_url', 'http://localhost:8501'))
+
+    submitted = st.form_submit_button("Salvar Configurações")
+    
+    if submitted:
+        new_config = {
+            'sender_email': sender_email,
+            'password': app_password,
+            'smtp_server': smtp_server,
+            'smtp_port': smtp_port,
+            'app_base_url': app_base_url
+        }
+        try:
+            with open(email_config_file, 'w') as f:
+                json.dump(new_config, f)
+            st.success("Configurações de e-mail salvas com sucesso!")
+        except Exception as e:
+            st.error(f"Erro ao salvar configurações: {e}")
+
+with st.expander("Como obter sua Senha de App do Google"):
+    st.markdown("""
+    1. Acesse sua Conta Google: [myaccount.google.com](https://myaccount.google.com/)
+    2. No menu lateral, clique em **Segurança**.
+    3. Em "Como você faz login no Google", ative a **Verificação em duas etapas** (se ainda não estiver ativa).
+    4. Após ativar, procure por **Senhas de app** (você pode usar a barra de busca no topo da página).
+    5. Em "Selecionar app", escolha **Outro (nome personalizado)** e digite um nome como "App de Clientes".
+    6. Clique em **Gerar**.
+    7. O Google mostrará uma senha de 16 letras. Copie essa senha (sem os espaços) e cole no campo "Senha de App do Google" acima.
+    """)

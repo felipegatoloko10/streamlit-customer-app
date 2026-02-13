@@ -39,7 +39,8 @@ class CustomerService:
             'observacao': data.get('observacao'),
             'data_cadastro': data.get('data_cadastro') or datetime.date.today(),
             'cpf': validators.unformat_cpf(data.get('cpf')),
-            'cnpj': validators.unformat_cnpj(data.get('cnpj'))
+            'cnpj': validators.unformat_cnpj(data.get('cnpj')),
+            'receber_atualizacoes': data.get('receber_atualizacoes', False)
         }
         cliente = Cliente(**cliente_data)
 
@@ -133,6 +134,9 @@ class CustomerService:
             # ou refatorar o repo para aceitar objetos também? 
             # O repo.update_customer atual aceita dicts.
             
+            # O repo.update_customer atual aceita dicts.
+            
+            # Garantir que receber_atualizacoes seja passado se estiver no data
             return repo.update_customer(customer_id, data) 
 
     def delete_customer(self, customer_id: int) -> bool:

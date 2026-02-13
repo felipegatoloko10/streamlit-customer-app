@@ -161,9 +161,11 @@ def send_new_customer_email(customer_data: dict, customer_id: int):
     message["To"] = email_config['sender_email']
 
     app_url = f"{app_base_url}/Banco_de_Dados?id={customer_id}"
+    
+    subscription_status = "Sim" if customer_data.get('receber_atualizacoes') else "Não"
 
-    text_body = f"Novo cliente cadastrado: {customer_data.get('nome_completo')}. Link: {app_url}"
-    html_body = f"<html><body><p>Novo cliente: <b>{customer_data.get('nome_completo')}</b></p><p><a href='{app_url}'>Ver Perfil</a></p></body></html>"
+    text_body = f"Novo cliente cadastrado: {customer_data.get('nome_completo')}.\nOptou por receber atualizações: {subscription_status}\nLink: {app_url}"
+    html_body = f"<html><body><p>Novo cliente: <b>{customer_data.get('nome_completo')}</b></p><p>Optou por receber atualizações: <b>{subscription_status}</b></p><p><a href='{app_url}'>Ver Perfil</a></p></body></html>"
 
     message.attach(MIMEText(text_body, "plain"))
     message.attach(MIMEText(html_body, "html"))

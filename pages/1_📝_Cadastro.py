@@ -25,6 +25,7 @@ DEFAULT_VALUES = {
     "widget_cep_address_input": "", "widget_endereco_input": "", "widget_numero_input": "",
     "widget_complemento_input": "", "widget_bairro_input": "", "widget_cidade_input": "",
     "widget_estado_input": "", "widget_observacao_input": "", "widget_use_client_name_checkbox": False,
+    "widget_receber_atualizacoes_checkbox": True,
     "expand_contatos": False, "expand_cep": False, "expand_endereco": False, "expand_obs": False,
     "processing_submission": False, # Novo flag para evitar múltiplas submissões
     "clear_form_requested": False # Novo flag para controlar a limpeza do formulário
@@ -178,6 +179,7 @@ with st.expander("Passo 4: Endereço", expanded=st.session_state.expand_endereco
 
 with st.expander("Passo 5: Observações", expanded=st.session_state.expand_obs):
     st.text_area("Observações", height=150, max_chars=1000, key="widget_observacao_input")
+    st.checkbox("Receber atualizações e novidades por e-mail", key="widget_receber_atualizacoes_checkbox", value=True)
 
 st.markdown("---")
 
@@ -200,6 +202,7 @@ with col_submit:
                 'complemento': st.session_state.widget_complemento_input, 'bairro': st.session_state.widget_bairro_input,
                 'cidade': st.session_state.widget_cidade_input, 'estado': st.session_state.widget_estado_input,
                 'observacao': st.session_state.widget_observacao_input,
+                'receber_atualizacoes': st.session_state.widget_receber_atualizacoes_checkbox,
             }
 
             # Constrói o endereço completo para geocodificação

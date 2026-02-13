@@ -10,6 +10,7 @@ class ClienteBase(SQLModel):
     data_nascimento: Optional[date] = None
     observacao: Optional[str] = None
     data_cadastro: Optional[date] = Field(default_factory=date.today)
+    receber_atualizacoes: bool = Field(default=False)
 
 class Cliente(ClienteBase, table=True):
     __tablename__ = "clientes"
