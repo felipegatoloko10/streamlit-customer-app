@@ -153,9 +153,9 @@ class CustomerRepository(BaseRepository[Cliente]):
         
         if search_query:
             statement = statement.where(
-                (Cliente.nome_completo.contains(search_query)) | 
-                (Cliente.cpf.contains(search_query)) | 
-                (Cliente.cnpj.contains(search_query))
+                (Cliente.nome_completo.ilike(f"%{search_query}%")) | 
+                (Cliente.cpf.ilike(f"%{search_query}%")) | 
+                (Cliente.cnpj.ilike(f"%{search_query}%"))
             )
         
         statement = statement.offset(offset).limit(limit)
@@ -173,9 +173,9 @@ class CustomerRepository(BaseRepository[Cliente]):
         
         if search_query:
             statement = statement.where(
-                (Cliente.nome_completo.contains(search_query)) | 
-                (Cliente.cpf.contains(search_query)) | 
-                (Cliente.cnpj.contains(search_query))
+                (Cliente.nome_completo.ilike(f"%{search_query}%")) | 
+                (Cliente.cpf.ilike(f"%{search_query}%")) | 
+                (Cliente.cnpj.ilike(f"%{search_query}%"))
             )
             
         return self.session.exec(statement).one()
@@ -192,15 +192,15 @@ class CustomerRepository(BaseRepository[Cliente]):
 
     def get_new_customers_timeseries(self, start_date, end_date, period='M') -> pd.DataFrame:
         if period == 'D':
-            date_format = '%Y-%m-%d'
+            date_format = 'YYYY-MM-DD'
         elif period == 'W':
-            date_format = '%Y-%W'
+            date_format = 'YYYY-IW'
         else:
-            date_format = '%Y-%m'
+            date_format = 'YYYY-MM'
             
         query = text(f"""
             SELECT 
-                strftime('{date_format}', data_cadastro) as time_period,
+                TO_CHAR(data_cadastro, '{date_format}') as time_period,
                 COUNT(id) as count
             FROM clientes
             WHERE data_cadastro BETWEEN :start_date AND :end_date

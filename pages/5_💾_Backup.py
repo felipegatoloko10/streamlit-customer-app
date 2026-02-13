@@ -52,29 +52,73 @@ def save_backup_config(threshold):
 
 # --- Seção 1: Backup e Restauração Local ---
 with st.expander("1. Backup e Restauração Local (Manual)", expanded=False):
-    st.subheader("Criar e Baixar um Backup Local")
-    if os.path.exists(DB_FILE):
-        with open(DB_FILE, "rb") as fp:
-            timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-            backup_filename = f"backup_{DB_FILE}_{timestamp}.db"
-            st.download_button(
-                label="Baixar Cópia de Segurança Local",
-                data=fp,
-                file_name=backup_filename,
-                mime="application/octet-stream",
-                use_container_width=True
-            )
-    else:
-        st.warning(f"O arquivo do banco de dados (`{DB_FILE}`) ainda não existe. Cadastre um cliente para criá-lo.")
+
+    st.subheader("Criar e Baixar um Backup Local (Exportação)")
+    
+    col_fmt, col_btn = st.columns([1, 2])
+    with col_fmt:
+        export_format = st.radio("Formato:", ["JSON", "CSV"], horizontal=True)
+    
+    with col_btn:
+        st.write("") # Spacer
+        st.write("") # Spacer
+        if st.button("Gerar Arquivo de Exportação"):
+            with st.spinner(f"Gerando arquivo {export_format} com todos os dados..."):
+                try:
+                    # Gera o arquivo usando o manager
+                    backup_file = backup_manager.generate_local_export(format=export_format)
+                    
+                    mime_type = "application/json" if export_format == "JSON" else "text/csv"
+                    
+                    with open(backup_file, "rb") as fp:
+                        st.download_button(
+                            label=f"⬇️ Baixar Exportação ({export_format})",
+                            data=fp,
+                            file_name=backup_file,
+                            mime=mime_type,
+                            use_container_width=True
+                        )
+                    
+                except Exception as e:
+                    st.error(f"Erro ao gerar exportação: {e}")
+                
+    st.info("O backup gera um arquivo contendo todos os dados dos clientes, compatível com o novo banco de dados Supabase.")
     
     st.markdown("---")
     
     st.subheader("Restaurar a partir de um Backup Local")
-    uploaded_file = st.file_uploader("Selecione um arquivo .db do seu computador:", type=['db'], key="backup_uploader")
+    uploaded_file = st.file_uploader("Selecione um arquivo de backup (.json ou .csv):", type=['json', 'csv'], key="backup_uploader")
 
     if uploaded_file:
-        # Lógica de restauração a ser implementada (simples para este exemplo)
-        st.info("Funcionalidade de restauração em desenvolvimento.")
+        st.warning("⚠️ Atenção: A restauração irá adicionar os clientes do arquivo ao banco de dados. Clientes com CPF/CNPJ já existentes serão ignorados.")
+        if st.button("Iniciar Restauração", type="primary"):
+            with st.spinner("Processando restauração... isso pode levar alguns instantes..."):
+                # Salva arquivo temporário para processamento
+                try:
+                    file_ext = uploaded_file.name.split('.')[-1].lower()
+                    temp_filename = f"temp_restore.{file_ext}"
+                    with open(temp_filename, "wb") as f:
+                        f.write(uploaded_file.getbuffer())
+                    
+                    # Chama o manager
+                    result = backup_manager.restore_data(temp_filename, file_ext)
+                    
+                    # Remove temp
+                    if os.path.exists(temp_filename):
+                        os.remove(temp_filename)
+                    
+                    if result["success"]:
+                        st.success(f"Restauração concluída! {result['imported']} registros importados com sucesso.")
+                        if result["errors"] > 0:
+                            st.warning(f"{result['errors']} registros foram ignorados (provavelmente duplicados ou erros).")
+                            with st.expander("Ver detalhes dos erros/ignorados"):
+                                for err in result["details"]:
+                                    st.write(err)
+                    else:
+                        st.error(result["message"])
+                        
+                except Exception as e:
+                    st.error(f"Erro crítico na restauração: {e}")
 
 
 # --- Seção 2: Backup em Nuvem (Google Drive) ---

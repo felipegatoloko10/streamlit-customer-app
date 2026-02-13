@@ -37,7 +37,7 @@ ENDERECOS_COLUMNS = [
 def log_action(cursor, entidade, entidade_id, acao, antes=None, depois=None):
     """Registra uma ação na tabela de auditoria."""
     import json
-    sql = "INSERT INTO audit_logs (entidade, entidade_id, acao, dados_anteriores, dados_novos) VALUES (?, ?, ?, ?, ?)"
+    sql = "INSERT INTO audit_logs (entidade, entidade_id, acao, dados_anteriores, dados_novos) VALUES (%s, %s, %s, %s, %s)"
     cursor.execute(sql, (
         entidade, 
         entidade_id, 
@@ -314,7 +314,7 @@ def get_customer_by_id(customer_id: int) -> dict:
         LEFT JOIN contatos co1 ON cl.id = co1.cliente_id AND co1.tipo_contato = 'Principal'
         LEFT JOIN contatos co2 ON cl.id = co2.cliente_id AND co2.tipo_contato = 'Secundário'
         LEFT JOIN enderecos en ON cl.id = en.cliente_id AND en.tipo_endereco = 'Principal'
-        WHERE cl.id = ?
+        WHERE cl.id = %s
     """
     
     try:
@@ -368,13 +368,14 @@ def _build_where_clause(search_query: str = None, state_filter: str = None, star
     params = []
     conditions = []
     if search_query:
-        conditions.append(f"({main_table_alias}.nome_completo LIKE ? OR {main_table_alias}.cpf LIKE ? OR {main_table_alias}.cnpj LIKE ?)")
+        # Postgres ILIKE is better for case-insensitive search
+        conditions.append(f"({main_table_alias}.nome_completo ILIKE %s OR {main_table_alias}.cpf ILIKE %s OR {main_table_alias}.cnpj ILIKE %s)")
         params.extend([f'%{search_query}%', f'%{search_query}%', f'%{search_query}%'])
     if state_filter and state_filter != "Todos":
-        conditions.append(f"{address_table_alias}.estado = ?")
+        conditions.append(f"{address_table_alias}.estado = %s")
         params.append(state_filter)
     if start_date and end_date:
-        conditions.append(f"{main_table_alias}.data_cadastro BETWEEN ? AND ?")
+        conditions.append(f"{main_table_alias}.data_cadastro BETWEEN %s AND %s")
         params.extend([start_date, end_date])
     where_clause = " WHERE " + " AND ".join(conditions) if conditions else ""
     return where_clause, params
@@ -422,7 +423,7 @@ def fetch_data(search_query: str = None, state_filter: str = None, page: int = 1
         {join_type} enderecos en ON cl.id = en.cliente_id AND en.tipo_endereco = 'Principal'
         {where_clause}
         ORDER BY cl.id DESC
-        LIMIT ? OFFSET ?
+        LIMIT %s OFFSET %s
     """
     
     try:
@@ -457,19 +458,19 @@ def get_new_customers_timeseries(start_date, end_date, period='M'):
     """
     
     if period == 'D':
-        date_format = '%Y-%m-%d'
+        date_format = 'YYYY-MM-DD'
     elif period == 'W':
         # ISO Week
-        date_format = '%Y-%W'
+        date_format = 'YYYY-IW'
     else: # Mês
-        date_format = '%Y-%m'
+        date_format = 'YYYY-MM'
         
     query = f"""
         SELECT 
-            strftime('{date_format}', data_cadastro) as time_period,
+            TO_CHAR(data_cadastro, '{date_format}') as time_period,
             COUNT(id) as count
         FROM clientes
-        WHERE data_cadastro BETWEEN ? AND ?
+        WHERE data_cadastro BETWEEN %s AND %s
         GROUP BY time_period
         ORDER BY time_period;
     """
@@ -487,7 +488,7 @@ def get_customers_by_state_for_map(start_date, end_date):
         SELECT en.estado, COUNT(cl.id) as count 
         FROM clientes cl
         JOIN enderecos en ON cl.id = en.cliente_id AND en.tipo_endereco = 'Principal'
-        WHERE en.estado IS NOT NULL AND en.estado != '' AND cl.data_cadastro BETWEEN ? AND ?
+        WHERE en.estado IS NOT NULL AND en.estado != '' AND cl.data_cadastro BETWEEN %s AND %s
         GROUP BY en.estado;
     """
     try:
