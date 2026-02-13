@@ -141,8 +141,26 @@ def send_new_customer_email(customer_data: dict, customer_id: int):
         with open(config_file, 'r') as f:
             email_config = json.load(f)
     
-    if not email_config:
-        if all(k in st.secrets for k in ["name", "key", "smtp_server", "smtp_port"]):
+    # Prioridade para st.secrets (ambiente seguro/cloud)
+    if "email_config" in st.secrets:
+        # Se estiver organizado dentro de uma seção [email_config]
+        secrets_config = st.secrets["email_config"]
+        email_config['sender_email'] = secrets_config.get("sender_email", email_config.get('sender_email'))
+        email_config['password'] = secrets_config.get("password", email_config.get('password'))
+        email_config['smtp_server'] = secrets_config.get("smtp_server", email_config.get('smtp_server', 'smtp.gmail.com'))
+        email_config['smtp_port'] = secrets_config.get("smtp_port", email_config.get('smtp_port', '587'))
+        email_config['app_base_url'] = secrets_config.get("app_base_url", email_config.get('app_base_url'))
+    
+    # Suporte para secrets na raiz (compatibilidade simples)
+    elif all(k in st.secrets for k in ["email_sender", "email_password"]):
+         email_config['sender_email'] = st.secrets.get("email_sender")
+         email_config['password'] = st.secrets.get("email_password")
+         email_config['smtp_server'] = st.secrets.get("smtp_server", "smtp.gmail.com")
+         email_config['smtp_port'] = st.secrets.get("smtp_port", "587")
+         email_config['app_base_url'] = st.secrets.get("app_base_url")
+
+    # Fallback para o modo antigo (suporte legado interno)
+    elif not email_config and all(k in st.secrets for k in ["name", "key", "smtp_server", "smtp_port"]):
             email_config['sender_email'] = st.secrets["name"]
             email_config['password'] = st.secrets["key"]
             email_config['smtp_server'] = st.secrets["smtp_server"]

@@ -108,6 +108,27 @@ O sistema suporta envio de notificações via SMTP (focado no Gmail).
 3. Insira seu e-mail e a **Senha de App** (gerada nas configurações de segurança do Google).
 4. O sistema salvará as credenciais localmente em `email_config.json`.
 
+### Configuração via Streamlit Secrets (Recomendado para Cloud)
+
+Para maior segurança, especialmente no **Streamlit Cloud**, você pode configurar as credenciais usando `Secrets`.
+
+1. **Localmente:** Crie/edite o arquivo `.streamlit/secrets.toml`:
+
+    ```toml
+    [email_config]
+    sender_email = "seu-email@gmail.com"
+    password = "sua-senha-de-app"
+    smtp_server = "smtp.gmail.com"
+    smtp_port = "587"
+    app_base_url = "https://seu-app.streamlit.app"
+    ```
+
+2. **No Streamlit Cloud:**
+    - Vá nas configurações do seu app.
+    - Cole o conteúdo acima na área de **Secrets**.
+
+> **Nota:** Se as configurações estiverem presentes nos Secrets, o arquivo `email_config.json` será ignorado e a edição via interface será desabilitada.
+
 ## ⚡ Infraestrutura e Manutenção
 
 ### Evitar Hibernação (Streamlit Cloud)

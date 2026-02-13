@@ -260,30 +260,64 @@ if os.path.exists(email_config_file):
 with st.form("email_config_form"):
     st.info("Configure o envio de e-mails para receber notificações quando um novo cliente for cadastrado.")
     
-    sender_email = st.text_input("E-mail do Remetente (Gmail)", value=current_config.get('sender_email', ''))
-    app_password = st.text_input("Senha de App do Google", type="password", value=current_config.get('password', ''), help="Não é a sua senha normal. É uma senha de 16 caracteres gerada no Google.")
+    # Verifica se existem secrets configurados
+    using_secrets = False
+    secrets_source = ""
     
-    smtp_server = st.text_input("Servidor SMTP", value=current_config.get('smtp_server', 'smtp.gmail.com'))
-    smtp_port = st.text_input("Porta SMTP", value=current_config.get('smtp_port', '587'))
-    
-    app_base_url = st.text_input("URL Base do App (para links)", value=current_config.get('app_base_url', 'http://localhost:8501'))
-
-    submitted = st.form_submit_button("Salvar Configurações")
-    
-    if submitted:
-        new_config = {
-            'sender_email': sender_email,
-            'password': app_password,
-            'smtp_server': smtp_server,
-            'smtp_port': smtp_port,
-            'app_base_url': app_base_url
+    if "email_config" in st.secrets:
+        using_secrets = True
+        secrets_source = "st.secrets['email_config']"
+        secrets_data = st.secrets["email_config"]
+    elif all(k in st.secrets for k in ["email_sender", "email_password"]):
+        using_secrets = True
+        secrets_source = "st.secrets (raiz)"
+        secrets_data = {
+            "sender_email": st.secrets.get("email_sender"),
+            "password": st.secrets.get("email_password"),
+            "smtp_server": st.secrets.get("smtp_server", "smtp.gmail.com"),
+            "smtp_port": st.secrets.get("smtp_port", "587"),
+            "app_base_url": st.secrets.get("app_base_url")
         }
-        try:
-            with open(email_config_file, 'w') as f:
-                json.dump(new_config, f)
-            st.success("Configurações de e-mail salvas com sucesso!")
-        except Exception as e:
-            st.error(f"Erro ao salvar configurações: {e}")
+    
+    if using_secrets:
+        st.success(f"🔒 Configurações carregadas via Secrets ({secrets_source}). O arquivo local `email_config.json` será ignorado se existir.")
+        
+        # Exibe valores como desabilitados para informar o usuário
+        st.text_input("E-mail do Remetente", value=secrets_data.get('sender_email', ''), disabled=True)
+        st.text_input("Senha de App", type="password", value="********", disabled=True)
+        st.text_input("Servidor SMTP", value=secrets_data.get('smtp_server', ''), disabled=True)
+        st.text_input("Porta SMTP", value=secrets_data.get('smtp_port', ''), disabled=True)
+        st.text_input("URL Base", value=secrets_data.get('app_base_url', ''), disabled=True)
+        
+        st.caption("Para alterar essas configurações, edite o arquivo `.streamlit/secrets.toml` ou as configurações do Streamlit Cloud.")
+        submitted = st.form_submit_button("Salvar Configurações Locais (Não Recomendado)", disabled=True)
+        
+    else:
+        # Modo Edição Manual (JSON)
+        sender_email = st.text_input("E-mail do Remetente (Gmail)", value=current_config.get('sender_email', ''))
+        app_password = st.text_input("Senha de App do Google", type="password", value=current_config.get('password', ''), help="Não é a sua senha normal. É uma senha de 16 caracteres gerada no Google.")
+        
+        smtp_server = st.text_input("Servidor SMTP", value=current_config.get('smtp_server', 'smtp.gmail.com'))
+        smtp_port = st.text_input("Porta SMTP", value=current_config.get('smtp_port', '587'))
+        
+        app_base_url = st.text_input("URL Base do App (para links)", value=current_config.get('app_base_url', 'http://localhost:8501'))
+
+        submitted = st.form_submit_button("Salvar Configurações")
+        
+        if submitted:
+            new_config = {
+                'sender_email': sender_email,
+                'password': app_password,
+                'smtp_server': smtp_server,
+                'smtp_port': smtp_port,
+                'app_base_url': app_base_url
+            }
+            try:
+                with open(email_config_file, 'w') as f:
+                    json.dump(new_config, f)
+                st.success("Configurações de e-mail salvas com sucesso!")
+            except Exception as e:
+                st.error(f"Erro ao salvar configurações: {e}")
 
 with st.expander("Como obter sua Senha de App do Google"):
     st.markdown("""
