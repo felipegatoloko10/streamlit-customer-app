@@ -244,7 +244,7 @@ class CustomerRepository(BaseRepository[Cliente]):
         query = text("""
             SELECT * FROM (
                 SELECT cl.id, cl.nome_completo, 
-                       CASE WHEN co.email IS NULL OR co.email = '' THEN 1 ELSE 0 END as missing_email,
+                       CASE WHEN co.email_contato IS NULL OR co.email_contato = '' THEN 1 ELSE 0 END as missing_email,
                        CASE WHEN co.telefone IS NULL OR co.telefone = '' THEN 1 ELSE 0 END as missing_phone,
                        CASE WHEN en.cep IS NULL OR en.cep = '' THEN 1 ELSE 0 END as missing_cep
                 FROM clientes cl
