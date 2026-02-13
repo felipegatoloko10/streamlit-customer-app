@@ -6,9 +6,10 @@ import integration_services as services
 import backup_manager
 import datetime
 import json
+import sqlite3
 from sqlmodel import select, Session, text
 import database_config
-from models import Cliente, Contato, Endereco, AuditLog
+from models import Cliente, Contato, Endereco, AuditLog, ChatHistory
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -82,10 +83,7 @@ def _validate_cliente_data(cliente_data: dict):
             raise validators.ValidationError("O campo 'CNPJ' é obrigatório para o cliente.")
         validators.is_valid_cnpj(cliente_data['cnpj'])
 
-from sqlmodel import select, Session
-import database_config
-from models import Cliente, Contato, Endereco, AuditLog
-import json
+
 
 def get_session():
     """Retorna uma nova sessão do banco de dados."""
@@ -598,3 +596,57 @@ def get_all_states() -> list:
     except Exception as e:
         logging.error(f"Erro ao buscar estados: {e}")
         return []
+
+# --- Chat Bot Persistence ---
+
+
+
+def save_chat_message(phone_number, role, content):
+    """Salva uma mensagem no histórico do chat (Postgres)."""
+    try:
+        with get_session() as session:
+            msg = ChatHistory(
+                phone_number=phone_number,
+                role=role,
+                content=content
+            )
+            session.add(msg)
+            session.commit()
+    except Exception as e:
+        logging.error(f"Erro ao salvar mensagem de chat: {e}")
+
+def get_chat_history(phone_number, limit=20):
+    """Recupera o histórico recente de conversas com um número (Postgres)."""
+    try:
+        with get_session() as session:
+            # SQLModel select
+            statement = select(ChatHistory).where(ChatHistory.phone_number == phone_number).order_by(ChatHistory.timestamp.desc()).limit(limit)
+            results = session.exec(statement).all()
+            
+            # Retorna na ordem cronológica (mais antigo primeiro) para o LLM entender
+            history = []
+            for r in reversed(results):
+                history.append({
+                    "role": r.role,
+                    "parts": [r.content]
+                })
+            return history
+    except Exception as e:
+        logging.error(f"Erro ao recuperar histórico de chat: {e}")
+        return []
+
+def get_recent_chats_summary(limit=50):
+    """Retorna um resumo das últimas mensagens trocadas para o Dashboard (Postgres)."""
+    try:
+        # Using pandas with the engine directly for summary query
+        query = '''
+            SELECT phone_number, role, content, timestamp 
+            FROM chat_history 
+            ORDER BY timestamp DESC
+            LIMIT %s
+        '''
+        df = pd.read_sql_query(query, database_config.engine, params=(limit,))
+        return df
+    except Exception as e:
+        logging.error(f"Erro ao buscar resumo de chats: {e}")
+        return pd.DataFrame()

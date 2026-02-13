@@ -72,3 +72,13 @@ class AuditLog(SQLModel, table=True):
     dados_anteriores: Optional[str] = None # JSON string
     dados_novos: Optional[str] = None # JSON string
     usuario: str = Field(default="Sistema")
+
+class ChatHistory(SQLModel, table=True):
+    __tablename__ = "chat_history"
+    __table_args__ = {"extend_existing": True}
+    id: Optional[int] = Field(default=None, primary_key=True)
+    phone_number: str = Field(index=True)
+    role: str # 'user' or 'model'
+    content: str
+    timestamp: datetime = Field(default_factory=datetime.now)
+    is_read: int = Field(default=0)

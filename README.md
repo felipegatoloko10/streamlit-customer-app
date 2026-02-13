@@ -12,6 +12,9 @@ Sistema completo de gestão de clientes desenvolvido em Python com Streamlit, ag
 
 - **Backend Migrado:** Substituição do SQLite local pelo **PostgreSQL no Supabase**.
 - **Busca Melhorada:** Pesquisa de clientes agora é *case-insensitive* (ILIKE).
+- **Integração WhatsApp (Evolution API):**
+  - Setup local com Node.js (sem Docker) para maior estabilidade.
+  - Envio de mensagens e criação de instâncias via API.
 - **Novo Sistema de Backup:**
   - Exportação e Importação em **JSON** e **CSV**.
   - Backup automático e manual para **Google Drive**.

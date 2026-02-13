@@ -34,10 +34,11 @@ st.info(f"📊 Exibindo dados de **{start_date.strftime('%d/%m/%Y')}** até **{t
 
 
 # --- Estrutura de Abas ---
-tab_overview, tab_geo, tab_health = st.tabs([
+tab_overview, tab_geo, tab_health, tab_bot = st.tabs([
     "Visão Geral", 
     "Análise Geográfica", 
-    "Saúde dos Dados"
+    "Saúde dos Dados",
+    "🤖 Bot Atendimento"
 ])
 
 with tab_overview:
@@ -152,3 +153,103 @@ with tab_health:
         st.dataframe(incomplete_data, hide_index=True)
     else:
         st.success("Parabéns! Todos os seus clientes têm dados essenciais completos.")
+
+with tab_bot:
+    st.header("🤖 Configuração e Logs do Bot")
+    
+    # Carregar configuração
+    CONFIG_FILE = "bot_config.json"
+    config = {}
+    try:
+        with open(CONFIG_FILE, 'r') as f:
+            config = json.load(f)
+    except FileNotFoundError:
+        pass
+    
+    # Toggle de Ativação
+    col_status, col_conf = st.columns([1, 2])
+    
+    with col_status:
+        st.subheader("Status")
+        
+        # Carrega configuração atual
+        bot_active = st.toggle("Bot Ativo", value=config.get("bot_active", False))
+        
+        # Salva se mudou
+        if bot_active != config.get("bot_active", False):
+            config["bot_active"] = bot_active
+            with open(CONFIG_FILE, 'w') as f:
+                json.dump(config, f, indent=4)
+            st.rerun()
+            
+        # --- Lógica de Thread Nativa ---
+        from services.bot_engine import BotRunner, get_bot_runner
+        
+        runner = get_bot_runner()
+        
+        if bot_active:
+            if not runner:
+                st.info("Iniciando motor do bot...")
+                try:
+                    runner = BotRunner()
+                    runner.start()
+                    st.rerun() # Recarrega para mostrar status atualizado
+                except Exception as e:
+                    st.error(f"Erro ao iniciar bot: {e}")
+            else:
+                st.success("🟢 Bot Rodando (Nativo)")
+                st.caption(f"Thread ID: {runner.ident}")
+        else:
+            if runner:
+                st.warning("🟡 Bot Pausado (Dormindo)")
+                # Opcional: Se quiser matar a thread, use runner.stop(), mas deixar dormindo é mais seguro
+            else:
+                st.error("🔴 Bot Parado")
+
+
+    with col_conf:
+        with st.expander("Configurações da API"):
+            new_evo_url = st.text_input("Evolution API URL", value=config.get("evolution_api_url", ""))
+            new_evo_token = st.text_input("Evolution API Token", value=config.get("evolution_api_token", ""), type="password")
+            new_gemini_key = st.text_input("Gemini API Key", value=config.get("gemini_key", ""), type="password")
+            
+            if st.button("Salvar Configurações"):
+                config["evolution_api_url"] = new_evo_url
+                config["evolution_api_token"] = new_evo_token
+                config["gemini_key"] = new_gemini_key
+                config["bot_active"] = bot_active # Mantém o estado
+                with open(CONFIG_FILE, 'w') as f:
+                    json.dump(config, f, indent=4)
+                st.success("Configurações salvas!")
+
+    st.markdown("---")
+    
+    # Visualizador de Logs e Histórico
+    col_logs, col_chat = st.columns([1, 1])
+    
+    with col_logs:
+        st.subheader("Logs do Sistema (bot.log)")
+        if st.button("Atualizar Logs"):
+            st.rerun()
+        
+        log_content = "Nenhum log encontrado."
+        try:
+            with open("bot.log", "r", encoding="utf-8") as f:
+                lines = f.readlines()
+                log_content = "".join(lines[-20:]) # Últimas 20 linhas
+        except FileNotFoundError:
+            pass
+            
+        st.code(log_content, language="text")
+
+    with col_chat:
+        st.subheader("Últimas Conversas")
+        import database
+        try:
+            recent_chats = database.get_recent_chats_summary(limit=10)
+            if not recent_chats.empty:
+                st.dataframe(recent_chats, hide_index=True)
+            else:
+                st.info("Nenhuma conversa registrada ainda.")
+        except Exception as e:
+            st.error(f"Erro ao carregar conversas: {e}")

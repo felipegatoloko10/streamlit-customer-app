@@ -29,7 +29,8 @@ def get_models():
         "AuditLog": models_src.AuditLog,
         "ClienteBase": models_src.ClienteBase,
         "ContatoBase": models_src.ContatoBase,
-        "EnderecoBase": models_src.EnderecoBase
+        "EnderecoBase": models_src.EnderecoBase,
+        "ChatHistory": models_src.ChatHistory
     }
 
 # Get the cached models dictionary
@@ -43,3 +44,4 @@ AuditLog = _m["AuditLog"]
 ClienteBase = _m["ClienteBase"]
 ContatoBase = _m["ContatoBase"]
 EnderecoBase = _m["EnderecoBase"]
+ChatHistory = _m["ChatHistory"]
