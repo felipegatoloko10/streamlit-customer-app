@@ -169,3 +169,4 @@ Faker
 sqlmodel
 alembic
 psycopg2-binary
+google-generativeai
