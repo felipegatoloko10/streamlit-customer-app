@@ -69,7 +69,7 @@ class BotRunner(threading.Thread):
                 is_active = config.get("bot_active", False)
                 
                 if not is_active:
-                    logging.debug("Bot is inactive in config. Sleeping...")
+                    logging.info("Bot is inactive in config. Sleeping...")
                     time.sleep(5)
                     continue
 
@@ -88,7 +88,7 @@ class BotRunner(threading.Thread):
                 
                 # 1. Fetch recent messages
                 url_debug = f"{evolution_service.base_url}/chat/findMessages/{evolution_service.instance_name}"
-                logging.debug(f"Polling URL: {url_debug}")
+                logging.info(f"Polling URL: {url_debug}")
                 data = evolution_service.get_recent_messages(count=10)
                 
                 if not data and not isinstance(data, (dict, list)):
