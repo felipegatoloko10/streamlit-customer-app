@@ -7,15 +7,25 @@ __pycache__/
 customers.db
 *.db
 
-# Secrets & Tokens (IMPORTANT)
+# Secrets & Tokens (IMPORTANT — NUNCA commitar chaves!)
 token.pickle
 credentials.json
 email_config.json
 .streamlit/secrets.toml
+bot_config.json
+*.key
+*.pem
+secrets.json
 
 # Backup Files
 backup_*.db
 temp_*.db
+
+# Logs
+*.log
+
+# Scripts de teste
+test_*.py
 
 # OS generated files
 .DS_Store

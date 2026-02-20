@@ -161,4 +161,12 @@ class BotIntelligence:
                 )
                 return None  # Não manda mensagem de erro ao cliente
 
+            # API key inválida, vazada ou sem permissão (403) → não responde ao cliente
+            if "403" in error_str or "leaked" in error_str.lower() or "API key" in error_str:
+                logging.error(
+                    "🔑 ATENÇÃO: API key do Gemini inválida ou bloqueada! "
+                    "Acesse https://aistudio.google.com para criar uma nova key e atualize no Dashboard."
+                )
+                return None  # Silencioso: não manda "Desculpe..." ao cliente
+
             return "Desculpe, tive um problema técnico. Um humano irá atendê-lo em breve."
