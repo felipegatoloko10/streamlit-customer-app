@@ -62,7 +62,6 @@ class BotRunner(threading.Thread):
             try:
                 # Reload config every loop to check for changes
                 config = load_config()
-                # If "bot_active" is false in config, we pause but don't kill thread
                 is_active = config.get("bot_active", False)
                 
                 if not is_active:
@@ -82,19 +81,32 @@ class BotRunner(threading.Thread):
                 
                 if config.get("gemini_key") != bot_intelligence.api_key:
                     bot_intelligence = BotIntelligence(config.get("gemini_key"))
-                
-                # 1. Fetch recent messages
+
+                # --- 1. Self-Diagnostics ---
+                # Check instance connection
+                is_connected, conn_msg = evolution_service.check_connection()
+                if not is_connected:
+                    logging.info(f"⚠️ ATENCAO: Instancia '{evolution_service.instance_name}' NAO ESTA CONECTADA. {conn_msg}")
+                    # Try to derive the IP for the QR scan link
+                    server_ip = evolution_service.base_url.split('//')[-1].split(':')[0]
+                    logging.info(f"👉 Por favor, acesse http://{server_ip} e escaneie o QR Code.")
+                    time.sleep(10)
+                    continue
+
+                # Check Gemini Key
+                if not bot_intelligence.api_key:
+                    logging.info("⚠️ ATENCAO: Chave API do Gemini esta FALTANDO. O bot nao conseguira responder.")
+                    # We don't continue because we want to at least log messages, but it won't reply.
+
+                # 2. Fetch recent messages
                 url_debug = f"{evolution_service.base_url}/chat/findMessages/{evolution_service.instance_name}"
                 logging.info(f"Polling URL: {url_debug}")
                 data = evolution_service.get_recent_messages(count=10)
                 
                 if not data and not isinstance(data, (dict, list)):
-                    logging.warning(f"Polled {url_debug} but got empty/null response")
-                elif isinstance(data, (dict, list)):
-                    logging.debug(f"Polled {url_debug} success")
+                    logging.debug(f"Polled {url_debug} but got empty/null response")
                 
-                # Evolution API v2 returns {"findMessages": {"messages": []}}
-                # Evolution API v1 returns [] directly
+                # Evolution API returns data in different shapes depending on version
                 if isinstance(data, dict):
                     find_messages_obj = data.get("findMessages")
                     if isinstance(find_messages_obj, dict):
@@ -106,7 +118,6 @@ class BotRunner(threading.Thread):
                 else:
                     messages = []
                 
-                # Ensure messages is a list of dicts
                 if not isinstance(messages, list):
                     messages = []
                 
@@ -115,7 +126,7 @@ class BotRunner(threading.Thread):
                 for msg in messages:
                     if self._stop_event.is_set(): break
 
-                    # 1. Metadata Extraction
+                    # Metadata Extraction
                     key = msg.get("key", {})
                     message_id = key.get("id")
                     remote_jid = key.get("remoteJid")
@@ -125,18 +136,17 @@ class BotRunner(threading.Thread):
                     if from_me:
                         continue
                     
-                    # 2. Robust Deduplication (using Message ID)
+                    # Deduplication (using Message ID)
                     if message_id and database.check_message_exists(message_id):
                         logging.debug(f"Message {message_id} already processed. Skipping.")
                         continue
                     
-                    # 3. Content Extraction
+                    # Content Extraction
                     message_content = msg.get("message", {})
                     text_content = message_content.get("conversation") or \
                                   message_content.get("extendedTextMessage", {}).get("text")
                     
                     if not text_content:
-                        # Sometimes v2 nesting is different
                         text_content = message_content.get("text") or \
                                       msg.get("content", {}).get("text")
                     
@@ -150,8 +160,11 @@ class BotRunner(threading.Thread):
                         database.save_chat_message(phone_number, "user", text_content, external_id=message_id)
 
                         # 5. Generate Reply
-                        context_history = database.get_chat_history(phone_number, limit=10)
-                        reply_text = bot_intelligence.generate_response(text_content, context_history)
+                        if not bot_intelligence.api_key:
+                            reply_text = "Erro: Chave Gemini não configurada no Dashboard."
+                        else:
+                            context_history = database.get_chat_history(phone_number, limit=10)
+                            reply_text = bot_intelligence.generate_response(text_content, context_history)
 
                         # 6. Send Reply
                         if reply_text:
@@ -183,7 +196,6 @@ def get_bot_runner():
     return None
 
 if __name__ == "__main__":
-    # Standalone run
     runner = BotRunner()
     runner.start()
     try:
