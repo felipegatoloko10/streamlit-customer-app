@@ -144,9 +144,25 @@ class BotRunner(threading.Thread):
                 
                 messages = [m for m in messages if isinstance(m, dict)]
                 
-                logging.info(f"Mensagens válidas para processar: {len(messages)}")
+                # Filtrar apenas mensagens RECENTES (últimos 120 segundos)
+                # A API retorna histórico completo; sem filtro de tempo, reprocessa tudo
+                import time as _time
+                now_ts = _time.time()
+                WINDOW_SECONDS = 120  # só processa mensagens dos últimos 2 minutos
+                recent_messages = []
+                for m in messages:
+                    msg_ts = m.get("messageTimestamp") or m.get("timestamp")
+                    if msg_ts:
+                        try:
+                            msg_ts = int(msg_ts)
+                            if (now_ts - msg_ts) <= WINDOW_SECONDS:
+                                recent_messages.append(m)
+                        except (ValueError, TypeError):
+                            pass  # ignora mensagem sem timestamp válido
                 
-                for msg in messages:
+                logging.info(f"Mensagens válidas para processar: {len(recent_messages)} (de {len(messages)} recentes na página, janela={WINDOW_SECONDS}s)")
+                
+                for msg in recent_messages:
                     if self._stop_event.is_set(): break
 
                     # Metadata Extraction

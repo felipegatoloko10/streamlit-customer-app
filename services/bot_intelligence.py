@@ -16,7 +16,7 @@ class BotIntelligence:
             try:
                 genai.configure(api_key=self.api_key)
                 # Using gemini-pro or gemini-1.5-flash if available/preferred
-                self.model = genai.GenerativeModel('gemini-pro')
+                self.model = genai.GenerativeModel('gemini-1.5-flash')
             except Exception as e:
                 logging.error(f"Failed to configure Gemini: {e}")
 
