@@ -39,8 +39,49 @@ class BotRunner(threading.Thread):
     def __init__(self):
         super().__init__()
         self._stop_event = threading.Event()
-        self.daemon = True # Daemon thread ensuring it dies when main app dies
-        
+        self.daemon = True  # Daemon thread: morre quando o app morre
+
+        # Deduplicação em memória (mais rápida que o banco)
+        # Guarda os últimos 500 IDs processados para evitar bater no DB a cada msg
+        self._processed_ids = set()
+        self._processed_ids_order = []  # para manter limite de tamanho do set
+        self._MAX_IDS_IN_MEMORY = 500
+
+        # Anti-spam: armazena (phone, texto_normalizado) → timestamp da última msg
+        # Ignora se o mesmo número mandar a mesma mensagem em menos de 30 segundos
+        self._last_message_per_phone = {}  # {(phone, texto): timestamp}
+        self._SPAM_WINDOW_SECONDS = 30
+
+    def _is_duplicate_in_memory(self, message_id):
+        """Verifica deduplicação sem bater no banco."""
+        if message_id in self._processed_ids:
+            return True
+        return False
+
+    def _register_in_memory(self, message_id):
+        """Registra ID no set de memória, mantendo tamanho máximo."""
+        self._processed_ids.add(message_id)
+        self._processed_ids_order.append(message_id)
+        if len(self._processed_ids_order) > self._MAX_IDS_IN_MEMORY:
+            oldest = self._processed_ids_order.pop(0)
+            self._processed_ids.discard(oldest)
+
+    def _is_spam(self, phone_number, text_content):
+        """True se o mesmo número mandou a mesma msg em menos de SPAM_WINDOW_SECONDS."""
+        key = (phone_number, text_content.strip().lower()[:100])
+        now = time.time()
+        last_ts = self._last_message_per_phone.get(key, 0)
+        if (now - last_ts) < self._SPAM_WINDOW_SECONDS:
+            return True
+        self._last_message_per_phone[key] = now
+        # Limpa entradas antigas a cada 100 itens para não crescer indefinidamente
+        if len(self._last_message_per_phone) > 100:
+            cutoff = now - self._SPAM_WINDOW_SECONDS * 2
+            self._last_message_per_phone = {
+                k: v for k, v in self._last_message_per_phone.items() if v > cutoff
+            }
+        return False
+
     def stop(self):
         self._stop_event.set()
         logging.info("Stopping Bot Engine...")
@@ -175,21 +216,33 @@ class BotRunner(threading.Thread):
                     if from_me:
                         continue
                     
-                    # Deduplication (using Message ID)
-                    if message_id and database.check_message_exists(message_id):
-                        logging.debug(f"Message {message_id} already processed. Skipping.")
+                    # Deduplicação rápida em memória (sem bater no banco)
+                    if message_id and self._is_duplicate_in_memory(message_id):
+                        logging.debug(f"[MEM] Message {message_id} já processada. Skipping.")
                         continue
-                    
+
+                    # Deduplicação persistente no banco (segunda camada)
+                    if message_id and database.check_message_exists(message_id):
+                        logging.debug(f"[DB] Message {message_id} já processada. Skipping.")
+                        self._register_in_memory(message_id)  # atualiza cache
+                        continue
+
                     # Content Extraction
                     message_content = msg.get("message", {})
                     text_content = message_content.get("conversation") or \
                                   message_content.get("extendedTextMessage", {}).get("text")
-                    
+
                     if not text_content:
                         text_content = message_content.get("text") or \
                                       msg.get("content", {}).get("text")
-                    
+
                     if not text_content:
+                        continue
+
+                    # Filtro anti-spam: mesmo número, mesma mensagem, em <30s
+                    if self._is_spam(phone_number, text_content):
+                        logging.info(f"[SPAM] Msg duplicada de {phone_number} em <{self._SPAM_WINDOW_SECONDS}s. Ignorando.")
+                        self._register_in_memory(message_id)  # marca para não reprocessar
                         continue
 
                     logging.info(f"Processing message {message_id} from {phone_number}: {text_content[:50]}...")
@@ -197,6 +250,7 @@ class BotRunner(threading.Thread):
                     try:
                         # 4. Save User Message to DB
                         database.save_chat_message(phone_number, "user", text_content, external_id=message_id)
+                        self._register_in_memory(message_id)  # registra no cache de memória
 
                         # 5. Generate Reply
                         if not bot_intelligence.api_key:
@@ -218,7 +272,7 @@ class BotRunner(threading.Thread):
                     except Exception as loop_e:
                         logging.error(f"Error processing single message {message_id}: {loop_e}")
 
-                time.sleep(5) # Poll interval if active
+                time.sleep(15)  # Poll a cada 15s (reduz consumo de API e cota Gemini)
 
             except Exception as e:
                 logging.error(f"Error in main loop: {e}")

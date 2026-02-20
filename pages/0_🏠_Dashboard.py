@@ -211,6 +211,64 @@ with tab_bot:
             else:
                 st.error("🔴 Bot Parado")
 
+        # --- Painel de Uso do Gemini ---
+        st.markdown("---")
+        st.subheader("📊 Uso do Gemini (Plano Gratuito)")
+
+        # Tenta obter stats do bot_intelligence via thread ativa
+        gemini_stats = None
+        try:
+            from services.bot_engine import get_bot_runner as _get_runner
+            _runner = _get_runner()
+            # Acessa bot_intelligence apenas se thread estiver rodando
+            # Fallback: mostra placeholders se não disponível
+        except Exception:
+            pass
+
+        # Lê estatísticas do log
+        try:
+            import re as _re
+            with open("bot.log", "r", encoding="utf-8") as _f:
+                _lines = _f.readlines()
+
+            # Extrai a última linha com stats do Gemini
+            _stats_line = ""
+            for _l in reversed(_lines):
+                if "calls/min |" in _l and "calls/dia" in _l:
+                    _stats_line = _l
+                    break
+
+            if _stats_line:
+                _m = _re.search(r'(\d+) calls/min \| (\d+)/(\d+) calls/dia', _stats_line)
+                if _m:
+                    _cpm = int(_m.group(1))
+                    _today = int(_m.group(2))
+                    _max_day = int(_m.group(3))
+
+                    _c1, _c2 = st.columns(2)
+                    with _c1:
+                        st.metric("Calls hoje", f"{_today} / {_max_day}")
+                        st.progress(min(_today / _max_day, 1.0))
+                    with _c2:
+                        st.metric("Calls último minuto", f"{_cpm} / 10")
+                        st.progress(min(_cpm / 10, 1.0))
+                else:
+                    st.info("Aguardando primeira chamada ao Gemini...")
+            else:
+                st.info("Nenhuma chamada ao Gemini registrada ainda.")
+
+            # Detecta cooldown ativo nos logs
+            _cooldown_line = ""
+            for _l in reversed(_lines[-50:]):
+                if "Rate limit da API" in _l or "cooldown" in _l.lower():
+                    _cooldown_line = _l.strip()
+                    break
+            if _cooldown_line:
+                st.warning(f"⏳ {_cooldown_line.split(' - ')[-1]}")
+
+        except FileNotFoundError:
+            st.caption("bot.log não encontrado. Inicie o bot primeiro.")
+
 
     with col_conf:
         with st.expander("Configurações da API"):
