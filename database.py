@@ -602,17 +602,18 @@ def get_all_states() -> list:
 
 
 def save_chat_message(phone_number, role, content, external_id=None):
-    """Salva uma mensagem no histórico do chat (Postgres)."""
+    """Salva uma mensagem no histórico do chat (Postgres) via SQL direto."""
     try:
-        with get_session() as session:
-            msg = ChatHistory(
-                phone_number=phone_number,
-                role=role,
-                content=content,
-                external_id=external_id
+        from sqlalchemy import text as sa_text
+        with database_config.engine.connect() as conn:
+            conn.execute(
+                sa_text("""
+                    INSERT INTO chat_history (phone_number, role, content, timestamp, is_read, external_id)
+                    VALUES (:phone, :role, :content, NOW(), 0, :eid)
+                """),
+                {"phone": phone_number, "role": role, "content": content, "eid": external_id}
             )
-            session.add(msg)
-            session.commit()
+            conn.commit()
     except Exception as e:
         logging.error(f"Erro ao salvar mensagem de chat: {e}")
 
@@ -621,9 +622,12 @@ def check_message_exists(external_id):
     if not external_id:
         return False
     try:
-        with get_session() as session:
-            statement = select(ChatHistory).where(ChatHistory.external_id == external_id)
-            result = session.exec(statement).first()
+        from sqlalchemy import text as sa_text
+        with database_config.engine.connect() as conn:
+            result = conn.execute(
+                sa_text("SELECT id FROM chat_history WHERE external_id = :eid LIMIT 1"),
+                {"eid": external_id}
+            ).fetchone()
             return result is not None
     except Exception as e:
         logging.error(f"Erro ao verificar existência de mensagem: {e}")
