@@ -78,7 +78,9 @@ class BotRunner(threading.Thread):
                 current_token = config.get("evolution_api_token")
                 current_instance = config.get("evolution_instance_name", "cactvs")
 
-                if current_url != evolution_service.base_url or current_instance != evolution_service.instance_name:
+                if current_url and current_url.rstrip('/') != evolution_service.base_url or \
+                   current_token != evolution_service.api_token or \
+                   current_instance != evolution_service.instance_name:
                     evolution_service = EvolutionService(current_url, current_token, instance_name=current_instance)
                 
                 if config.get("gemini_key") != bot_intelligence.api_key:
@@ -90,11 +92,22 @@ class BotRunner(threading.Thread):
                 # Evolution API v2 returns {"findMessages": {"messages": []}}
                 # Evolution API v1 returns [] directly
                 if isinstance(data, dict):
-                    messages = data.get("findMessages", {}).get("messages", []) or data.get("messages", [])
+                    # Robust nested lookup for Evolution API v2 and v1
+                    find_messages_obj = data.get("findMessages")
+                    if isinstance(find_messages_obj, dict):
+                        messages = find_messages_obj.get("messages", [])
+                    else:
+                        messages = data.get("messages", [])
                 elif isinstance(data, list):
                     messages = data
                 else:
                     messages = []
+                
+                # Ensure messages is a list of dicts
+                if not isinstance(messages, list):
+                    messages = []
+                
+                messages = [m for m in messages if isinstance(m, dict)]
 
                 for msg in messages:
                     if self._stop_event.is_set(): break
