@@ -122,15 +122,18 @@ class BotRunner(threading.Thread):
                         import json as _json
                         logging.info(f"Primeiro item: {_json.dumps(data[0], default=str)[:500]}")
 
-                # Evolution API returns data in different shapes depending on version
+                # Evolution API v2.3.0 real structure:
+                # {"messages": {"total": N, "pages": N, "currentPage": N, "records": [...]}}
                 if isinstance(data, dict):
-                    # Try common paths in v2 and v2.3.0
-                    find_messages_obj = data.get("findMessages")
-                    if isinstance(find_messages_obj, dict):
-                        messages = find_messages_obj.get("messages", [])
+                    messages_val = data.get("messages") or data.get("findMessages") or data.get("data")
+                    if isinstance(messages_val, dict):
+                        # v2.3.0 paginado: records é a lista real
+                        messages = messages_val.get("records") or messages_val.get("messages") or []
+                        logging.info(f"Estrutura paginada detectada. Total na API: {messages_val.get('total', '?')}, registros nesta pagina: {len(messages)}")
+                    elif isinstance(messages_val, list):
+                        messages = messages_val
                     else:
-                        # Sometimes it's inside a 'data' wrapper
-                        messages = data.get("messages") or data.get("data")
+                        messages = []
                 elif isinstance(data, list):
                     messages = data
                 else:
