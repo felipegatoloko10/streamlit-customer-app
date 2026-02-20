@@ -109,8 +109,18 @@ class BotRunner(threading.Thread):
                 # DEBUG: Log the keys in the response to help diagnosis in Dashboard
                 if isinstance(data, dict):
                     logging.info(f"Response keys: {list(data.keys())}")
+                    # Log first item of messages if present
+                    raw_msgs = data.get('messages', data.get('data', []))
+                    if isinstance(raw_msgs, list):
+                        logging.info(f"Total de mensagens brutas na resposta: {len(raw_msgs)}")
+                        if raw_msgs:
+                            import json as _json
+                            logging.info(f"Primeira mensagem (bruta): {_json.dumps(raw_msgs[0], default=str)[:500]}")
                 elif isinstance(data, list):
                     logging.info(f"Response is a list of {len(data)} items.")
+                    if data:
+                        import json as _json
+                        logging.info(f"Primeiro item: {_json.dumps(data[0], default=str)[:500]}")
 
                 # Evolution API returns data in different shapes depending on version
                 if isinstance(data, dict):
@@ -130,7 +140,9 @@ class BotRunner(threading.Thread):
                     messages = []
                 
                 messages = [m for m in messages if isinstance(m, dict)]
-
+                
+                logging.info(f"Mensagens válidas para processar: {len(messages)}")
+                
                 for msg in messages:
                     if self._stop_event.is_set(): break
 
