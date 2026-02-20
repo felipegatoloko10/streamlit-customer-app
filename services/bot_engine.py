@@ -85,8 +85,17 @@ class BotRunner(threading.Thread):
                     bot_intelligence = BotIntelligence(config.get("gemini_key"))
                 
                 # 1. Fetch recent messages
-                messages = evolution_service.get_recent_messages(count=10)
+                data = evolution_service.get_recent_messages(count=10)
                 
+                # Evolution API v2 returns {"findMessages": {"messages": []}}
+                # Evolution API v1 returns [] directly
+                if isinstance(data, dict):
+                    messages = data.get("findMessages", {}).get("messages", []) or data.get("messages", [])
+                elif isinstance(data, list):
+                    messages = data
+                else:
+                    messages = []
+
                 for msg in messages:
                     if self._stop_event.is_set(): break
 
