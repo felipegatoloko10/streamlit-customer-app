@@ -199,10 +199,15 @@ with tab_bot:
             else:
                 st.success("🟢 Bot Rodando (Nativo)")
                 st.caption(f"Thread ID: {runner.ident}")
+                if st.button("🔄 Reiniciar Motor", help="Use se o bot parar de responder"):
+                    runner.stop()
+                    st.rerun()
         else:
             if runner:
                 st.warning("🟡 Bot Pausado (Dormindo)")
-                # Opcional: Se quiser matar a thread, use runner.stop(), mas deixar dormindo é mais seguro
+                if st.button("🛑 Parar Motor"):
+                    runner.stop()
+                    st.rerun()
             else:
                 st.error("🔴 Bot Parado")
 
