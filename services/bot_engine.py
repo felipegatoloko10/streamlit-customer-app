@@ -74,9 +74,9 @@ class BotRunner(threading.Thread):
                     continue
 
                 # Update service credentials if changed
-                current_url = config.get("evolution_api_url")
-                current_token = config.get("evolution_api_token")
-                current_instance = config.get("evolution_instance_name", "cactvs")
+                current_url = config.get("evolution_api_url", "").strip()
+                current_token = config.get("evolution_api_token", "").strip()
+                current_instance = config.get("evolution_instance_name", "BotFeh").strip()
 
                 if current_url and current_url.rstrip('/') != evolution_service.base_url or \
                    current_token != evolution_service.api_token or \
