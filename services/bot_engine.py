@@ -280,13 +280,46 @@ class BotRunner(threading.Thread):
         
         logging.info("Bot Engine Stopped.")
 
-# Global instance manager for Streamlit
+# --- Singleton thread-safe ---
+# Garante que apenas UMA instância de BotRunner existe por vez.
+_runner_lock = threading.Lock()
+_current_runner: "BotRunner | None" = None
+
 def get_bot_runner():
-    # Helper to check if a thread is already running
-    for thread in threading.enumerate():
-        if isinstance(thread, BotRunner) and thread.is_alive():
-            return thread
-    return None
+    """Retorna o runner ativo ou None."""
+    global _current_runner
+    with _runner_lock:
+        if _current_runner is not None and _current_runner.is_alive():
+            return _current_runner
+        _current_runner = None
+        return None
+
+def start_bot_runner():
+    """Para qualquer runner existente e inicia um novo. Thread-safe."""
+    global _current_runner
+    with _runner_lock:
+        # Para o runner anterior se ainda estiver vivo
+        if _current_runner is not None and _current_runner.is_alive():
+            _current_runner.stop()
+            # Aguarda até 3s para a thread parar
+            _current_runner.join(timeout=3)
+
+        new_runner = BotRunner()
+        new_runner.start()
+        _current_runner = new_runner
+        logging.info(f"✅ Novo BotRunner iniciado (Thread ID: {new_runner.ident})")
+        return new_runner
+
+def stop_bot_runner():
+    """Para o runner ativo se existir."""
+    global _current_runner
+    with _runner_lock:
+        if _current_runner is not None and _current_runner.is_alive():
+            _current_runner.stop()
+            _current_runner.join(timeout=3)
+            logging.info("🛑 BotRunner parado.")
+        _current_runner = None
+
 
 if __name__ == "__main__":
     runner = BotRunner()

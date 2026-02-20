@@ -182,18 +182,17 @@ with tab_bot:
                 json.dump(config, f, indent=4)
             st.rerun()
             
-        # --- Lógica de Thread Nativa ---
-        from services.bot_engine import BotRunner, get_bot_runner
+        # --- Lógica de Thread Nativa (Singleton thread-safe) ---
+        from services.bot_engine import get_bot_runner, start_bot_runner, stop_bot_runner
 
         runner = get_bot_runner()
 
         if bot_active:
             if not runner:
-                # Toggle foi ligado: ainda não há thread rodando → cria e inicia
+                # Toggle ligado: inicia runner (para qualquer thread anterior automaticamente)
                 st.info("▶️ Iniciando motor do bot...")
                 try:
-                    runner = BotRunner()
-                    runner.start()
+                    start_bot_runner()
                     st.rerun()
                 except Exception as e:
                     st.error(f"Erro ao iniciar bot: {e}")
@@ -201,17 +200,13 @@ with tab_bot:
                 st.success("🟢 Bot Rodando")
                 st.caption(f"Thread ID: {runner.ident}")
                 if st.button("🔄 Reiniciar Motor", help="Use se o bot parar de responder"):
-                    runner.stop()
-                    import time as _t; _t.sleep(1)  # aguarda a thread parar
-                    new_runner = BotRunner()
-                    new_runner.start()
+                    start_bot_runner()  # para o atual e cria novo automaticamente
                     st.rerun()
         else:
             if runner:
-                # Toggle foi desligado e a thread ainda está viva → para agora
+                # Toggle desligado: para completamente
                 st.warning("⏹️ Parando bot...")
-                runner.stop()
-                import time as _t; _t.sleep(1)
+                stop_bot_runner()
                 st.rerun()
             else:
                 st.error("🔴 Bot Parado")
