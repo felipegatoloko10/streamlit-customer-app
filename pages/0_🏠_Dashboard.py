@@ -184,32 +184,38 @@ with tab_bot:
             
         # --- Lógica de Thread Nativa ---
         from services.bot_engine import BotRunner, get_bot_runner
-        
+
         runner = get_bot_runner()
-        
+
         if bot_active:
             if not runner:
-                st.info("Iniciando motor do bot...")
+                # Toggle foi ligado: ainda não há thread rodando → cria e inicia
+                st.info("▶️ Iniciando motor do bot...")
                 try:
                     runner = BotRunner()
                     runner.start()
-                    st.rerun() # Recarrega para mostrar status atualizado
+                    st.rerun()
                 except Exception as e:
                     st.error(f"Erro ao iniciar bot: {e}")
             else:
-                st.success("🟢 Bot Rodando (Nativo)")
+                st.success("🟢 Bot Rodando")
                 st.caption(f"Thread ID: {runner.ident}")
                 if st.button("🔄 Reiniciar Motor", help="Use se o bot parar de responder"):
                     runner.stop()
+                    import time as _t; _t.sleep(1)  # aguarda a thread parar
+                    new_runner = BotRunner()
+                    new_runner.start()
                     st.rerun()
         else:
             if runner:
-                st.warning("🟡 Bot Pausado (Dormindo)")
-                if st.button("🛑 Parar Motor"):
-                    runner.stop()
-                    st.rerun()
+                # Toggle foi desligado e a thread ainda está viva → para agora
+                st.warning("⏹️ Parando bot...")
+                runner.stop()
+                import time as _t; _t.sleep(1)
+                st.rerun()
             else:
                 st.error("🔴 Bot Parado")
+
 
         # --- Painel de Uso do Gemini ---
         st.markdown("---")
