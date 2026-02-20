@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import sys
+import threading
 
 # Add parent directory to path to import database and services
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -34,8 +35,6 @@ def load_config():
             logging.error(f"Error loading config: {e}")
     return {}
 
-import threading
-
 class BotRunner(threading.Thread):
     def __init__(self):
         super().__init__()
@@ -53,7 +52,7 @@ class BotRunner(threading.Thread):
         config = load_config()
         evolution_api_url = config.get("evolution_api_url")
         evolution_api_token = config.get("evolution_api_token")
-        evolution_instance_name = config.get("evolution_instance_name", "cactvs")
+        evolution_instance_name = config.get("evolution_instance_name", "BotFeh")
         gemini_key = config.get("gemini_key")
         
         evolution_service = EvolutionService(evolution_api_url, evolution_api_token, instance_name=evolution_instance_name)
@@ -61,9 +60,7 @@ class BotRunner(threading.Thread):
 
         while not self._stop_event.is_set():
             try:
-                # Reload config every loop to check for changes (e.g. toggle ON/OFF)
-                # In threaded mode, we might want to respect the toggle differently 
-                # but reading from file is safe enough for low frequency.
+                # Reload config every loop to check for changes
                 config = load_config()
                 # If "bot_active" is false in config, we pause but don't kill thread
                 is_active = config.get("bot_active", False)
@@ -99,7 +96,6 @@ class BotRunner(threading.Thread):
                 # Evolution API v2 returns {"findMessages": {"messages": []}}
                 # Evolution API v1 returns [] directly
                 if isinstance(data, dict):
-                    # Robust nested lookup for Evolution API v2 and v1
                     find_messages_obj = data.get("findMessages")
                     if isinstance(find_messages_obj, dict):
                         messages = find_messages_obj.get("messages", [])
@@ -119,14 +115,25 @@ class BotRunner(threading.Thread):
                 for msg in messages:
                     if self._stop_event.is_set(): break
 
-                    # Structure of message depends on Evolution API version
+                    # 1. Metadata Extraction
                     key = msg.get("key", {})
+                    message_id = key.get("id")
                     remote_jid = key.get("remoteJid")
                     from_me = key.get("fromMe", False)
+                    phone_number = remote_jid.split("@")[0] if remote_jid else "unknown"
+
+                    if from_me:
+                        continue
                     
-                    # Check if it's a text message
+                    # 2. Robust Deduplication (using Message ID)
+                    if message_id and database.check_message_exists(message_id):
+                        logging.debug(f"Message {message_id} already processed. Skipping.")
+                        continue
+                    
+                    # 3. Content Extraction
                     message_content = msg.get("message", {})
-                    text_content = message_content.get("conversation") or message_content.get("extendedTextMessage", {}).get("text")
+                    text_content = message_content.get("conversation") or \
+                                  message_content.get("extendedTextMessage", {}).get("text")
                     
                     if not text_content:
                         # Sometimes v2 nesting is different
@@ -134,28 +141,30 @@ class BotRunner(threading.Thread):
                                       msg.get("content", {}).get("text")
                     
                     if not text_content:
-                        logging.info(f"Message {message_id} has no text content. Skipping. Raw message keys: {list(msg.keys())}")
                         continue
 
                     logging.info(f"Processing message {message_id} from {phone_number}: {text_content[:50]}...")
 
-                    # 2. Save User Message to DB
-                    database.save_chat_message(phone_number, "user", text_content, message_id=message_id)
+                    try:
+                        # 4. Save User Message to DB
+                        database.save_chat_message(phone_number, "user", text_content, external_id=message_id)
 
-                    # 3. Generate Reply
-                    context_history = database.get_chat_history(phone_number, limit=10)
-                    reply_text = bot_intelligence.generate_response(text_content, context_history)
+                        # 5. Generate Reply
+                        context_history = database.get_chat_history(phone_number, limit=10)
+                        reply_text = bot_intelligence.generate_response(text_content, context_history)
 
-                    # 4. Send Reply
-                    if reply_text:
-                        logging.info(f"Sending reply to {phone_number}: {reply_text}")
-                        result = evolution_service.send_message(phone_number, reply_text)
-                        
-                        if result:
-                            # 5. Save Bot Reply to DB
-                            database.save_chat_message(phone_number, "model", reply_text)
-                        else:
-                            logging.error("Failed to send reply via API.")
+                        # 6. Send Reply
+                        if reply_text:
+                            logging.info(f"Sending reply to {phone_number}: {reply_text[:50]}...")
+                            result = evolution_service.send_message(remote_jid, reply_text)
+                            
+                            if result:
+                                # 7. Save Bot Reply to DB
+                                database.save_chat_message(phone_number, "model", reply_text)
+                            else:
+                                logging.error(f"Failed to send reply to {phone_number} via API.")
+                    except Exception as loop_e:
+                        logging.error(f"Error processing single message {message_id}: {loop_e}")
 
                 time.sleep(5) # Poll interval if active
 
