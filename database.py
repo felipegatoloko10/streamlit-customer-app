@@ -601,19 +601,33 @@ def get_all_states() -> list:
 
 
 
-def save_chat_message(phone_number, role, content):
+def save_chat_message(phone_number, role, content, external_id=None):
     """Salva uma mensagem no histórico do chat (Postgres)."""
     try:
         with get_session() as session:
             msg = ChatHistory(
                 phone_number=phone_number,
                 role=role,
-                content=content
+                content=content,
+                external_id=external_id
             )
             session.add(msg)
             session.commit()
     except Exception as e:
         logging.error(f"Erro ao salvar mensagem de chat: {e}")
+
+def check_message_exists(external_id):
+    """Verifica se uma mensagem com este ID externo já foi processada."""
+    if not external_id:
+        return False
+    try:
+        with get_session() as session:
+            statement = select(ChatHistory).where(ChatHistory.external_id == external_id)
+            result = session.exec(statement).first()
+            return result is not None
+    except Exception as e:
+        logging.error(f"Erro ao verificar existência de mensagem: {e}")
+        return False
 
 def get_chat_history(phone_number, limit=20):
     """Recupera o histórico recente de conversas com um número (Postgres)."""

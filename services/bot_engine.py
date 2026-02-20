@@ -128,20 +128,19 @@ class BotRunner(threading.Thread):
                     message_content = msg.get("message", {})
                     text_content = message_content.get("conversation") or message_content.get("extendedTextMessage", {}).get("text")
                     
-                    if not text_content or from_me:
-                        continue 
+                    if not text_content:
+                        # Sometimes v2 nesting is different
+                        text_content = message_content.get("text") or \
+                                      msg.get("content", {}).get("text")
+                    
+                    if not text_content:
+                        logging.info(f"Message {message_id} has no text content. Skipping. Raw message keys: {list(msg.keys())}")
+                        continue
 
-                    phone_number = remote_jid.split("@")[0] if remote_jid else "unknown"
-
-                    # Deduplication (Simple)
-                    history = database.get_chat_history(phone_number, limit=1)
-                    if history and history[-1]['parts'][0] == text_content and history[-1]['role'] == 'user':
-                            continue
-
-                    logging.info(f"Processing message from {phone_number}: {text_content}")
+                    logging.info(f"Processing message {message_id} from {phone_number}: {text_content[:50]}...")
 
                     # 2. Save User Message to DB
-                    database.save_chat_message(phone_number, "user", text_content)
+                    database.save_chat_message(phone_number, "user", text_content, message_id=message_id)
 
                     # 3. Generate Reply
                     context_history = database.get_chat_history(phone_number, limit=10)
