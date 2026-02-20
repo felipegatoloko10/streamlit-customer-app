@@ -87,7 +87,14 @@ class BotRunner(threading.Thread):
                     bot_intelligence = BotIntelligence(config.get("gemini_key"))
                 
                 # 1. Fetch recent messages
+                url_debug = f"{evolution_service.base_url}/chat/findMessages/{evolution_service.instance_name}"
+                logging.debug(f"Polling URL: {url_debug}")
                 data = evolution_service.get_recent_messages(count=10)
+                
+                if not data and not isinstance(data, (dict, list)):
+                    logging.warning(f"Polled {url_debug} but got empty/null response")
+                elif isinstance(data, (dict, list)):
+                    logging.debug(f"Polled {url_debug} success")
                 
                 # Evolution API v2 returns {"findMessages": {"messages": []}}
                 # Evolution API v1 returns [] directly
