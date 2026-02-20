@@ -1,0 +1,6 @@
+{
+    "instanceName": "BotFeh",
+    "token": "123456",
+    "qrcode": true,
+    "integration": "WHATSAPP-BAILEYS"
+}

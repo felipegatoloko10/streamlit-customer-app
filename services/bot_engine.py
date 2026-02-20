@@ -53,9 +53,10 @@ class BotRunner(threading.Thread):
         config = load_config()
         evolution_api_url = config.get("evolution_api_url")
         evolution_api_token = config.get("evolution_api_token")
+        evolution_instance_name = config.get("evolution_instance_name", "cactvs")
         gemini_key = config.get("gemini_key")
         
-        evolution_service = EvolutionService(evolution_api_url, evolution_api_token)
+        evolution_service = EvolutionService(evolution_api_url, evolution_api_token, instance_name=evolution_instance_name)
         bot_intelligence = BotIntelligence(gemini_key)
 
         while not self._stop_event.is_set():
@@ -73,8 +74,12 @@ class BotRunner(threading.Thread):
                     continue
 
                 # Update service credentials if changed
-                if config.get("evolution_api_url") != evolution_service.base_url:
-                    evolution_service = EvolutionService(config.get("evolution_api_url"), config.get("evolution_api_token"))
+                current_url = config.get("evolution_api_url")
+                current_token = config.get("evolution_api_token")
+                current_instance = config.get("evolution_instance_name", "cactvs")
+
+                if current_url != evolution_service.base_url or current_instance != evolution_service.instance_name:
+                    evolution_service = EvolutionService(current_url, current_token, instance_name=current_instance)
                 
                 if config.get("gemini_key") != bot_intelligence.api_key:
                     bot_intelligence = BotIntelligence(config.get("gemini_key"))

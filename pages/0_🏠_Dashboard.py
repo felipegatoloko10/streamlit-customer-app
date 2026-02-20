@@ -211,11 +211,13 @@ with tab_bot:
         with st.expander("Configurações da API"):
             new_evo_url = st.text_input("Evolution API URL", value=config.get("evolution_api_url", ""))
             new_evo_token = st.text_input("Evolution API Token", value=config.get("evolution_api_token", ""), type="password")
+            new_evo_instance = st.text_input("Evolution Instance Name", value=config.get("evolution_instance_name", "BotFeh"))
             new_gemini_key = st.text_input("Gemini API Key", value=config.get("gemini_key", ""), type="password")
             
             if st.button("Salvar Configurações"):
                 config["evolution_api_url"] = new_evo_url
                 config["evolution_api_token"] = new_evo_token
+                config["evolution_instance_name"] = new_evo_instance
                 config["gemini_key"] = new_gemini_key
                 config["bot_active"] = bot_active # Mantém o estado
                 with open(CONFIG_FILE, 'w') as f:
