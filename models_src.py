@@ -82,3 +82,4 @@ class ChatHistory(SQLModel, table=True):
     content: str
     timestamp: datetime = Field(default_factory=datetime.now)
     is_read: int = Field(default=0)
+    external_id: Optional[str] = Field(default=None, index=True)

@@ -106,13 +106,21 @@ class BotRunner(threading.Thread):
                 if not data and not isinstance(data, (dict, list)):
                     logging.debug(f"Polled {url_debug} but got empty/null response")
                 
+                # DEBUG: Log the keys in the response to help diagnosis in Dashboard
+                if isinstance(data, dict):
+                    logging.info(f"Response keys: {list(data.keys())}")
+                elif isinstance(data, list):
+                    logging.info(f"Response is a list of {len(data)} items.")
+
                 # Evolution API returns data in different shapes depending on version
                 if isinstance(data, dict):
+                    # Try common paths in v2 and v2.3.0
                     find_messages_obj = data.get("findMessages")
                     if isinstance(find_messages_obj, dict):
                         messages = find_messages_obj.get("messages", [])
                     else:
-                        messages = data.get("messages", [])
+                        # Sometimes it's inside a 'data' wrapper
+                        messages = data.get("messages") or data.get("data")
                 elif isinstance(data, list):
                     messages = data
                 else:
