@@ -12,9 +12,10 @@ class BotIntelligence:
     Includes rate limiting (per-minute and per-day) and intelligent backoff.
     """
 
-    # Limites do plano GRATUITO do Google AI
-    MAX_CALLS_PER_MINUTE = 10   # limite real: 15/min, ficamos em 10 para segurança
-    MAX_CALLS_PER_DAY = 150     # limite real: 200/dia (conservador: 150)
+    # Limites do plano GRATUITO do Google AI (gemini-2.0-flash)
+    # Limite real: 15 RPM e 1.500 RPD — ficamos um pouco abaixo para segurança
+    MAX_CALLS_PER_MINUTE = 13   # limite real: 15/min
+    MAX_CALLS_PER_DAY = 1400    # limite real: 1.500/dia
 
     def __init__(self, api_key=None):
         self.api_key = api_key or os.getenv("GEMINI_API_KEY")
