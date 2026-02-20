@@ -33,14 +33,29 @@ class BotIntelligence:
 
         self.configure_model()
 
-    def configure_model(self):
+    # Modelos em ordem de preferência (fallback automático)
+    _MODEL_FALLBACK = ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash-8b']
+    _current_model_idx = 0  # índice no fallback list
+
+    def configure_model(self, model_name=None):
         if self.api_key:
             try:
                 genai.configure(api_key=self.api_key)
-                self.model = genai.GenerativeModel('gemini-2.0-flash')
-                logging.info("✅ Gemini configurado com modelo gemini-2.0-flash")
+                name = model_name or self._MODEL_FALLBACK[self._current_model_idx]
+                self.model = genai.GenerativeModel(name)
+                logging.info(f"✅ Gemini configurado com modelo {name}")
             except Exception as e:
                 logging.error(f"Failed to configure Gemini: {e}")
+
+    def _try_next_model(self):
+        """Tenta o próximo modelo no fallback list."""
+        self._current_model_idx += 1
+        if self._current_model_idx < len(self._MODEL_FALLBACK):
+            next_model = self._MODEL_FALLBACK[self._current_model_idx]
+            logging.warning(f"🔄 Trocando para modelo fallback: {next_model}")
+            self.configure_model(next_model)
+            return True
+        return False  # sem mais fallbacks
 
     def _reset_daily_if_needed(self):
         """Reseta contador diário à meia-noite."""
@@ -149,8 +164,18 @@ class BotIntelligence:
             error_str = str(e)
             logging.error(f"Erro na geração de resposta IA: {e}")
 
-            # Rate limit da API (429 / RESOURCE_EXHAUSTED) → aplica cooldown
+            # Rate limit da API (429 / RESOURCE_EXHAUSTED) → aplica cooldown ou troca de modelo
             if "429" in error_str or "quota" in error_str.lower() or "RESOURCE_EXHAUSTED" in error_str:
+                # "limit: 0" = free tier zerado para este modelo → tenta o próximo
+                if "limit: 0" in error_str:
+                    if self._try_next_model():
+                        logging.warning("🔄 Modelo com limit:0 — trocando automaticamente para fallback.")
+                        return self.generate_response(user_message, chat_history_list)  # retry com novo modelo
+                    else:
+                        logging.error("❌ Todos os modelos com limit:0. Aguardando reset diário.")
+                        self._rate_limited_until = time.time() + 3600  # pausa 1h
+                        return None
+
                 match = re.search(r'retry_delay\s*\{\s*seconds:\s*(\d+)', error_str)
                 wait_seconds = int(match.group(1)) if match else 60
                 wait_seconds = max(wait_seconds, 60)
@@ -160,6 +185,7 @@ class BotIntelligence:
                     f"(até {time.strftime('%H:%M:%S', time.localtime(self._rate_limited_until))})"
                 )
                 return None  # Não manda mensagem de erro ao cliente
+
 
             # API key inválida, vazada ou sem permissão (403) → não responde ao cliente
             if "403" in error_str or "leaked" in error_str.lower() or "API key" in error_str:
