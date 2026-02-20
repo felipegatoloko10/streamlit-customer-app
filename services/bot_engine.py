@@ -285,25 +285,37 @@ class BotRunner(threading.Thread):
 _runner_lock = threading.Lock()
 _current_runner: "BotRunner | None" = None
 
+def _kill_all_runners():
+    """Varre threading.enumerate() e para TODAS as threads BotRunner ativas.
+    Necessário para eliminar runners 'zumbis' de deploys/reloads anteriores."""
+    victims = [t for t in threading.enumerate() if isinstance(t, BotRunner) and t.is_alive()]
+    for t in victims:
+        t.stop()
+    for t in victims:
+        t.join(timeout=3)
+    if victims:
+        logging.info(f"🧹 {len(victims)} thread(s) BotRunner encerrada(s).")
+
 def get_bot_runner():
     """Retorna o runner ativo ou None."""
     global _current_runner
     with _runner_lock:
+        # Prefere _current_runner, mas busca qualquer thread viva como fallback
         if _current_runner is not None and _current_runner.is_alive():
             return _current_runner
+        # Busca em todas as threads (captura runners de sessões anteriores)
+        for t in threading.enumerate():
+            if isinstance(t, BotRunner) and t.is_alive():
+                _current_runner = t
+                return t
         _current_runner = None
         return None
 
 def start_bot_runner():
-    """Para qualquer runner existente e inicia um novo. Thread-safe."""
+    """Para TODOS os runners existentes e inicia um novo. Thread-safe."""
     global _current_runner
     with _runner_lock:
-        # Para o runner anterior se ainda estiver vivo
-        if _current_runner is not None and _current_runner.is_alive():
-            _current_runner.stop()
-            # Aguarda até 3s para a thread parar
-            _current_runner.join(timeout=3)
-
+        _kill_all_runners()  # garante que nenhuma thread zumbi sobrevive
         new_runner = BotRunner()
         new_runner.start()
         _current_runner = new_runner
@@ -311,13 +323,10 @@ def start_bot_runner():
         return new_runner
 
 def stop_bot_runner():
-    """Para o runner ativo se existir."""
+    """Para TODOS os runners ativos."""
     global _current_runner
     with _runner_lock:
-        if _current_runner is not None and _current_runner.is_alive():
-            _current_runner.stop()
-            _current_runner.join(timeout=3)
-            logging.info("🛑 BotRunner parado.")
+        _kill_all_runners()
         _current_runner = None
 
 
